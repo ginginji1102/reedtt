@@ -108,7 +108,7 @@ def chapter_links(soup,base,story_path):
     if host.endswith("wattpad.com"):
         selectors+=",a[href^='/'][href*='-'],a[href*='wattpad.com/']"
     elif host.endswith("inkitt.com"):
-        selectors+=",a[href*='/chapters/'],a[href*='/chapter/']"
+        selectors+=", .chapters-list a[href],a[href*='/chapters/'],a[href*='/chapter/']"
     for a in soup.select(selectors):
         href=normalized_url(base,a.get("href",""))
         if not href or urlparse(href).path.rstrip("/") == story_path.rstrip("/"): continue
@@ -117,7 +117,11 @@ def chapter_links(soup,base,story_path):
         if host.endswith("wattpad.com"):
             if not re.fullmatch(r"/\d{6,}(?:-[^/]*)?/?",target.path):continue
         elif host.endswith("inkitt.com"):
-            if not re.search(r"/chapters?/[^/]+",target.path,re.I):continue
+            if not (a.find_parent(class_="chapters-list") or re.search(r"/chapters?/[^/]+",target.path,re.I)):continue
+            nr=a.select_one(".chapter-nr")
+            chapter_title=a.select_one(".chapter-title")
+            if nr or chapter_title:
+                label=" ".join(x.get_text(" ",strip=True) for x in (nr,chapter_title) if x)
         elif not re.search(r"(chương|chuong|chapter)\s*[-:]?\s*\d+|/(chuong|chapter)[-_]?\d+",label+" "+href,re.I):continue
         found[href]={"title":label[:180] or href.rsplit("/",1)[-1],"url":href}
     return list(found.values())
@@ -190,7 +194,7 @@ def page_links(soup,base,story_path):
 def chapter_body(soup, source_url=''):
     host=(urlparse(source_url).hostname or '').lower()
     special=host.endswith(('wattpad.com','inkitt.com'))
-    preferred=('[data-testid=story-part-content]','.story-part-content','.panel-reading','.reading-content','.chapter-text','.chapter-content')
+    preferred=(('#story-text-container',) if host.endswith('inkitt.com') else ())+('[data-testid=story-part-content]','.story-part-content','.panel-reading','.reading-content','.chapter-text','.chapter-content')
     chapter=next((soup.select_one(sel) for sel in preferred if soup.select_one(sel)),None) if special else next((soup.select_one(sel) for sel in SELECTORS if soup.select_one(sel)),None)
     if not chapter:return "",[]
     for tag in chapter.select("script,style,nav,aside,footer,button,.ads,.advertisement,.read-more,.show-more,.more-btn,.expand,.collapse,[role=button]"):tag.decompose()
@@ -249,7 +253,7 @@ async def discover(req:ReadRequest):
         async with httpx.AsyncClient(timeout=20,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (compatible; ReedttReader/1.1)"}) as client:
             soup,base=await get_page(client,req.url)
             title=(soup.select_one("meta[property='og:title']") or {}).get("content","") or (soup.h1.get_text(" ",strip=True) if soup.h1 else "")
-            author=soup.select_one("[itemprop='author'],.author")
+            author=soup.select_one("span#storyAuthor,[itemprop='author'],.author")
             story_path=urlparse(base).path
             found={x["url"]:x for x in chapter_links(soup,base,story_path)}
             wattpad_data=await wattpad_story_metadata(client,base) if (urlparse(base).hostname or '').lower().endswith('wattpad.com') else None
@@ -270,7 +274,7 @@ async def discover(req:ReadRequest):
             def label(selector):
                 t=soup.select_one(selector)
                 return t.get_text(" ",strip=True) if t else ""
-            desc_node=soup.select_one(".desc-text,.book-desc,.story-description,.description,.desc,.intro,.summary,[itemprop=description]")
+            desc_node=soup.select_one("p.story-summary,.desc-text,.book-desc,.story-description,.description,.desc,.intro,.summary,[itemprop=description]")
             if desc_node:
                 # Keep source paragraph boundaries, explicit BR breaks, and inline sentence flow.
                 for junk in desc_node.select("button,script,style,.read-more,.show-more,.more-btn,.expand,.collapse,[role=button],a"):
@@ -289,7 +293,10 @@ async def discover(req:ReadRequest):
             description=re.sub(r"\s*(?:Xem thêm|Thu gọn|Đọc thêm|Show more|Read more)\s*$","",description,flags=re.I).strip()
             cover_tag=soup.select_one(".book-cover img,.book img,.story-cover img,.cover img,.info img,meta[property='og:image'],meta[name='twitter:image']")
             cover_url=(cover_tag.get("data-src") or cover_tag.get("data-original") or cover_tag.get("data-lazy-src") or cover_tag.get("src") or cover_tag.get("content") or "") if cover_tag else ""
-            cover=image_url(base,(wattpad_data or {}).get('cover') or meta("meta[property='og:image']") or meta("meta[name='twitter:image']") or cover_url)
+            inkitt_cover=soup.select_one("div.story-horizontal-cover__front") if (urlparse(base).hostname or '').lower().endswith("inkitt.com") else None
+            cover_css=inkitt_cover.get("style","") if inkitt_cover else ""
+            cover_match=re.search(r"url\(\s*['\"]?([^'\"\)]+)",cover_css,re.I)
+            cover=image_url(base,(wattpad_data or {}).get('cover') or (cover_match.group(1) if cover_match else "") or meta("meta[property='og:image']") or meta("meta[name='twitter:image']") or cover_url)
             if not cover:
                 raw=meta("meta[property='og:image']") or meta("meta[name='twitter:image']")
                 cover=image_url(base,raw) if raw else None
