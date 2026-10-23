@@ -25,7 +25,7 @@ const API='https://reedtt-reader-api.onrender.com';
 let discovered=[];
 let downloaded=[];
 let storyMeta={};
-$('url').addEventListener('input',()=>{try{const host=new URL($('url').value).hostname.replace(/^www\./,'');$('source').value=[...$('source').options].some(o=>o.value===host)?host:'auto'}catch{}});
+$('url').addEventListener('input',()=>{try{const host=new URL($('url').value).hostname.replace(/^www\./,'').toLowerCase();const match=[...$('source').options].find(o=>o.value!=='auto'&&(host===o.value||host.endsWith('.'+o.value)));$('source').value=match?match.value:'auto'}catch{$('source').value='auto'}});
 async function api(path,body){
  let r;
  try{
