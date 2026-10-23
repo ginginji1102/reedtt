@@ -87,13 +87,23 @@ async function browserDiscover(url){
  }
  return {title:doc.querySelector("meta[property='og:title']")?.content||doc.querySelector('h1')?.textContent?.trim()||'',chapters,count:chapters.length};
 }
+function extractReaderChapter(doc){
+ const body=doc.querySelector('.reader-demo-body');
+ if(body){
+  const paragraphs=[...body.querySelectorAll('.chapter-paragraph')].map(el=>(el.textContent||'').trim()).filter(Boolean);
+  if(paragraphs.length)return paragraphs.join('\n\n');
+  const fallback=[...body.querySelectorAll('p.reader-demo-para')].map(el=>(el.textContent||'').trim()).filter(Boolean);
+  if(fallback.length)return fallback.join('\n\n');
+ }
+ const node=doc.querySelector('.reader-content,.chapter-content,#chapter-content,article,[data-chapter-content],.prose,#reader-content,.reading-content');
+ if(!node)return '';
+ node.querySelectorAll('script,style,nav,button,.reader-demo-paragraph-comment-button').forEach(el=>el.remove());
+ return cleanText(node);
+}
 async function browserChapter(url){
  const doc=new DOMParser().parseFromString(await sourceHtml(url),'text/html');
- const node=doc.querySelector('.reader-content,.chapter-content,#chapter-content,article,[data-chapter-content],.prose,#reader-content,.reading-content');
- if(!node)throw Error('Trang chương không chứa văn bản trong HTML nhận được; có thể nội dung chỉ xuất hiện sau khi JavaScript chạy.');
- node.querySelectorAll('script,style,nav,button').forEach(x=>x.remove());
- const content=cleanText(node);
- if(!content)throw Error('Nội dung chương trống.');
+ const content=extractReaderChapter(doc);
+ if(!content)throw Error('Không thấy văn bản chương trong HTML tải về. Trang này có thể dựng .reader-demo-body bằng JavaScript sau khi mở; tiện ích hiện chỉ tải HTML gốc.');
  return content;
 }
 async function loadStory(){
