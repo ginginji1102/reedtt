@@ -139,6 +139,47 @@ async def wattpad_story_metadata(client,url):
         return {'parts':parts,'cover':data.get('cover'),'numParts':data.get('numParts')}
     except (httpx.HTTPError,ValueError,TypeError):return None
 
+
+async def wattpad_story_archive(client,story_url):
+    """Fetch publicly available story text ZIP, as used by WattpadDownloader."""
+    match=re.search(r'/story/(\d+)',urlparse(story_url).path)
+    if not match:return None
+    import io,zipfile
+    try:
+        r=await client.get('https://www.wattpad.com/apiv2/',params={'m':'storytext','group_id':match.group(1),'output':'zip'},timeout=35,headers={'Accept':'application/zip,application/octet-stream'})
+        if r.status_code!=200 or len(r.content)>24_000_000 or not zipfile.is_zipfile(io.BytesIO(r.content)):return None
+        with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+            result={}
+            for info in z.infolist():
+                if len(result)>=2000:break
+                part_id=re.fullmatch(r'(\d+)(?:\.html?)?',info.filename.rsplit('/',1)[-1])
+                if not part_id or info.file_size>750000:continue
+                result[part_id.group(1)]=z.read(info).decode('utf-8',errors='replace')
+            return result if result else None
+    except (httpx.HTTPError,ValueError,OSError,zipfile.BadZipFile):return None
+
+def wattpad_story_text(html,base,include_images=False):
+    """Only retain actual p tags from Wattpad's dedicated story-text archive."""
+    from bs4 import Tag
+    soup=BeautifulSoup(html,'html.parser')
+    root=soup.body or soup
+    paragraphs=[]
+    images=[]
+    for p in root.find_all('p'):
+        if p.find_parent(['aside','nav','footer','header','script','style']):continue
+        for img in p.find_all('img'):
+            src=img.get('data-src') or img.get('src')
+            if src and include_images:
+                resolved=image_url(base,src)
+                if resolved:images.append(resolved)
+        for bad in p.select('script,style,button,nav,aside'):bad.decompose()
+        for br in p.find_all('br'):br.replace_with('\n')
+        text=p.get_text('',strip=False).replace('\xa0',' ').strip()
+        text=re.sub(r'[ \t]+',' ',text)
+        text=re.sub(r'\n{3,}','\n\n',text)
+        if text:paragraphs.append(text)
+    return '\n\n'.join(paragraphs)[:300000],images[:50]
+
 def page_links(soup,base,story_path):
     result=[]
     for a in soup.select(".pagination a[href],.pagination-container a[href],a[href*='page='],a[href*='/trang-']"):
@@ -279,11 +320,19 @@ async def batch(req:BatchRequest):
         discovery=await discover(ReadRequest(url=req.url))
         chosen=discovery["chapters"][req.start-1:req.end]
     if not chosen:raise HTTPException(404,"Không tìm thấy chương.")
+    is_wattpad=(urlparse(req.url).hostname or '').lower().endswith('wattpad.com')
     semaphore=asyncio.Semaphore(5)
     async with httpx.AsyncClient(timeout=20,follow_redirects=False,limits=httpx.Limits(max_connections=6),headers={"User-Agent":"Mozilla/5.0 (compatible; ReedttReader/1.1)"}) as client:
+        archive=await wattpad_story_archive(client,req.url) if is_wattpad else None
         async def fetch_one(item):
             async with semaphore:
                 try:
+                    if archive:
+                        match=re.match(r'/([0-9]{6,})',urlparse(item['url']).path)
+                        part=archive.get(match.group(1)) if match else None
+                        if part is not None:
+                            text,imgs=wattpad_story_text(part,item['url'],req.include_images)
+                            return {'title':item['title'],'url':item['url'],'content':text,'images':imgs}
                     soup,base=await get_page(client,item["url"])
                     content,images=chapter_body(soup,base)
                     resolved=[image_url(base,x) for x in images] if req.include_images else []
