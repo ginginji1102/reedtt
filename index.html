@@ -1,23 +1,23 @@
 <!doctype html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Novel Box</title><link rel="icon" type="image/svg+xml" href="novel-box-logo.svg?v=2">
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Novel Box</title><link rel="icon" type="image/svg+xml" href="novel-box-logo.svg?v=3">
 <style>
 :root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif;background:#050b2a;color:#f7f4ff}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;color:#f7f4ff;background:#050b2a url("night-sky-original.jpg?v=20261023-original") center top / cover fixed no-repeat}
-header{border-bottom:1px solid #30283f;background:#100e19b8;padding:20px max(24px,calc((100% - 940px)/2));font-size:22px;font-weight:800;backdrop-filter:blur(14px)}header b{color:#bb8cff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;color:#f7f4ff;background:#050b2a url("novel-box-night.svg?v=20261023-2") center top / cover fixed no-repeat}
+header{border-bottom:1px solid #6664ac66;background:#0c1033c7;padding:20px max(24px,calc((100% - 940px)/2));font-size:22px;font-weight:800;backdrop-filter:blur(14px)}header b{color:#d3c6ff}
 main{max-width:940px;margin:52px auto;padding:0 20px}h1{text-align:center;font-size:clamp(30px,5vw,44px);margin:0;letter-spacing:-1px}p.lead{text-align:center;color:#b8accd;margin:12px 0 36px}
-.card{background:linear-gradient(135deg,#1c1729ed,#15131fe8);border:1px solid #403050;border-radius:20px;padding:26px;margin-bottom:20px;box-shadow:0 12px 35px #00000025}
+.card{background:linear-gradient(135deg,#10183ddf,#15193bdf);border:1px solid #7473b566;border-radius:20px;padding:26px;margin-bottom:20px;box-shadow:0 12px 35px #00000025}
 h2{font-size:19px;margin:0 0 18px;color:#f8f4ff}label{display:block;margin:12px 0 7px;color:#ded4ec}
-input,textarea,select{width:100%;border:1px solid #554365;border-radius:11px;background:#100e1a;color:white;padding:14px;font:inherit;outline:none;transition:border-color .2s,box-shadow .2s}
+input,textarea,select{width:100%;border:1px solid #555c94;border-radius:11px;background:#0b1230;color:white;padding:14px;font:inherit;outline:none;transition:border-color .2s,box-shadow .2s}
 input:focus,textarea:focus,select:focus{border-color:#b18aff;box-shadow:0 0 0 3px #a77af522}
 textarea{height:200px;resize:vertical;line-height:1.7}.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}.formats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.formats label{border:1px solid #554365;border-radius:12px;padding:16px;background:#251c35;cursor:pointer;transition:.2s}
-.formats label:hover{border-color:#bb8cff;background:#332344}.formats input{width:auto;margin-right:6px;accent-color:#a878fa}
-button{border:0;background:linear-gradient(110deg,#8450e6,#ac69f0);color:#fff;padding:14px 21px;border-radius:11px;cursor:pointer;font:inherit;font-weight:750;box-shadow:0 6px 18px #7e45d633}
-button.alt{background:#3a2d4c;box-shadow:none}button:hover{filter:brightness(1.13);transform:translateY(-1px)}
-.hint{font-size:13px;color:#b8accd;line-height:1.6}.status{margin-top:12px;padding:12px;border-radius:10px;background:#2c2040;color:#eadcff}
+.formats label{border:1px solid #554365;border-radius:12px;padding:16px;background:#202650dd;cursor:pointer;transition:.2s}
+.formats label:hover{border-color:#bb8cff;background:#343a78}.formats input{width:auto;margin-right:6px;accent-color:#a878fa}
+button{border:0;background:linear-gradient(110deg,#555fe0,#8c69e8);color:#fff;padding:14px 21px;border-radius:11px;cursor:pointer;font:inherit;font-weight:750;box-shadow:0 6px 18px #7e45d633}
+button.alt{background:#353a68;box-shadow:none}button:hover{filter:brightness(1.13);transform:translateY(-1px)}
+.hint{font-size:13px;color:#b8accd;line-height:1.6}.status{margin-top:12px;padding:12px;border-radius:10px;background:#292d61;color:#eadcff}
 @media(max-width:600px){main{margin:30px auto}.cols,.formats{grid-template-columns:1fr}.card{padding:20px}}
 </style></head>
-<body><header><img src="novel-box-logo.svg?v=2" alt="Novel Box" style="width:44px;height:44px;object-fit:contain;vertical-align:middle;margin-right:10px"><b>Novel Box</b></header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Dán một link truyện · Tìm chương tự động · Xuất Word, EPUB</p>
+<body><header><img src="novel-box-logo.svg?v=3" alt="Novel Box" style="width:44px;height:44px;object-fit:contain;vertical-align:middle;margin-right:10px"><b>Novel Box</b></header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Dán một link truyện · Tìm chương tự động · Xuất Word, EPUB</p>
 <section class="card"><h2>01 · Đường dẫn truyện</h2><label for="source">Nguồn truyện</label><select id="source"><option value="auto">Tự nhận diện theo link</option><option value="truyenfull.live">Truyenfull.live</option><option value="wikicv.org">Wikicv.org</option><option value="truyenmo.xyz">Truyenmo.xyz</option><option value="docln.net">Docln.net</option><option value="wattpad.com">Wattpad.com</option><option value="wordpress.com">WordPress.com</option></select><label for="url">Link trang truyện</label><input id="url" type="url" placeholder="https://trang-truyen.example/truyen/..."><p class="hint">Đọc chương công khai qua backend Render. Chỉ hỗ trợ các nguồn được cấu hình; không hỗ trợ chương khóa hoặc trả phí.</p><button type="button" class="alt" id="check">Thu thập nội dung truyện</button><div class="status" id="urlstatus" aria-live="polite"></div></section>
 <section class="card"><h2>Thông tin trang truyện</h2><div id="storymeta" class="hint">Ảnh bìa, mô tả, thể loại và tác giả sẽ được tự động lấy từ link truyện.</div></section>
 <section class="card"><h2>02 · Chọn định dạng</h2><div class="formats"><label><input type="radio" name="format" value="docx" checked>Word (.docx)</label><label><input type="radio" name="format" value="epub">EPUB (.epub)</label></div></section>
