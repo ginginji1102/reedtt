@@ -76,12 +76,12 @@ async function browserDiscover(url){
   if(href.hostname!==new URL(url).hostname||!href.searchParams.get('chapter')||!href.searchParams.get('storyId'))continue;
   if(storyId&&href.searchParams.get('storyId')!==storyId)continue;
   const label=(a.querySelector('strong,p')?.textContent||a.textContent||'').trim();
-  if(!/^(?:chương|chuong|chapter)\\s*\\d+/i.test(label)||seen.has(href.href))continue;
+  if(!/^(?:chương|chuong|chapter)\s*\d+/i.test(label)||seen.has(href.href))continue;
   seen.add(href.href);chapters.push({title:label,url:href.href});
  }
  if(!chapters.length){
   const direct=new URL(url);
-  if(direct.pathname.replace(/\\/$/,'')==='/reader'&&direct.searchParams.has('storyId')&&direct.searchParams.has('chapter')){
+  if(direct.pathname.replace(/\/$/,'')==='/reader'&&direct.searchParams.has('storyId')&&direct.searchParams.has('chapter')){
    chapters.push({title:doc.querySelector('h1,h2,.chapter-title')?.textContent?.trim()||'Chương đã chọn',url:direct.href});
   }else throw Error('Trình duyệt đã đọc HTML nhưng chưa thấy liên kết chương trong mã trang.');
  }
