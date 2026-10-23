@@ -163,8 +163,20 @@ def chapter_body(soup, source_url=''):
     content=re.sub(r" *\n *","\n",content)
     content=re.sub(r"\n{3,}","\n\n",content).strip()
     if special:
-        ui=re.compile(r'^(?:[0-9]+(?:[.,][0-9]+)?[KMB]?|bởi .{1,70}|by .{1,70}|Chia sẻ|Gửi|Post to Your Profile|Share via Email|Report Story|Share|Send|Vote)$',re.I)
-        content='\n\n'.join(p for p in content.split('\n\n') if not ui.fullmatch(p.strip()))
+        # Discard recommendation and comments sections rather than just their headings.
+        section_names=re.compile(r'^(?:Các truyện được quảng cáo|Bạn cũng sẽ thích|Truyện đề xuất|Truyện liên quan|Đề xuất cho bạn|Promoted Stories|Promoted|You(?:\s|\\u00a0)+May Also Like|You Might Also Like|Recommended(?: Stories)?|Recommendations|More Stories|Comments?|Bình luận|Phản hồi)(?:\s*[:：])?$',re.I)
+        ui=re.compile(r'^(?:[0-9]+(?:[.,][0-9]+)?[KMB]?|[0-9]+\s*(?:comments?|bình luận|votes?|lượt đọc)|bởi .{1,70}|by .{1,70}|Chia sẻ|Gửi|Post to Your Profile|Share via Email|Report Story|Share|Send|Vote|Reply|Trả lời|Like|Thích|Xem thêm|Đọc thêm|[?？]{1,4})$',re.I)
+        kept=[]
+        for paragraph in content.split('\n\n'):
+            paragraph=paragraph.strip()
+            if not paragraph:continue
+            # The story body ends where recommendation/comment widgets begin.
+            if section_names.fullmatch(paragraph):break
+            cleaned=[line for line in paragraph.split('\n') if not ui.fullmatch(line.strip())]
+            cleaned='\n'.join(cleaned).strip()
+            if cleaned:kept.append(cleaned)
+        content='\n\n'.join(kept)
+        if not content:return '',[]
     return content[:300000],images[:50]
 
 @app.post("/discover")
