@@ -143,8 +143,8 @@ async def discover(req:ReadRequest):
 
 @app.post("/batch")
 async def batch(req:BatchRequest):
-    if req.start<1 or req.end<req.start or req.end-req.start>=30:
-        raise HTTPException(400,"Mỗi lượt hỗ trợ tối đa 30 chương; chọn phạm vi hợp lệ.")
+    if req.start<1 or req.end<req.start or req.end-req.start>=20:
+        raise HTTPException(400,"Mỗi yêu cầu kỹ thuật hỗ trợ tối đa 20 chương; website tự chia đợt.")
     discovery=await discover(ReadRequest(url=req.url))
     chapters=discovery["chapters"]
     if not chapters:raise HTTPException(404,"Chưa tìm thấy danh sách chương công khai từ trang truyện.")
