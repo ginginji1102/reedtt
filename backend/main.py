@@ -221,15 +221,14 @@ def chapter_body(soup, source_url=''):
     special=host.endswith(('wattpad.com','inkitt.com'))
     preferred=(('#story-text-container',) if host.endswith('inkitt.com') else ())+('[data-testid=story-part-content]','.story-part-content','.panel-reading','.reading-content','.chapter-text','.chapter-content')
     if host.endswith("navyteams.com"):
-        navy_selectors=("#novelContent",".reader-content .novel-text","#chapter-content",".chapter-content",".chapter-reading",".chapter-body",".reading-content",".read-content",".content-chapter",".chapter-detail",".chapter-text",".novel-content",".prose","[class*='chapterContent']","[class*='chapter-content']","[id*='chapter-content']","[itemprop='articleBody']")
-        candidates=[soup.select_one(sel) for sel in navy_selectors]
-        candidates=[node for node in candidates if node and len(node.get_text(" ",strip=True))>=100]
-        chapter=max(candidates,key=lambda node:len(node.get_text(" ",strip=True)),default=None)
+        # Read only the actual visible novel body; avoid generic page containers.
+        chapter=soup.select_one("#novelContent")
         if chapter is None:
-            # Conservative fallback for public chapter pages with a custom content class.
-            containers=soup.select("main article,main section,main div,article")
-            candidates=[node for node in containers if len(node.get_text(" ",strip=True))>=500 and len(node.select("p"))>=3]
-            chapter=min(candidates,key=lambda node:len(node.get_text(" ",strip=True)),default=None)
+            chapter=soup.select_one(".reader-container .reader-content .content-type-novel .novel-text")
+        if chapter is not None:
+            # Work on a copy so cleanup does not mutate the soup used elsewhere.
+            from bs4 import BeautifulSoup
+            chapter=BeautifulSoup(str(chapter),"html.parser")
     else:
         chapter=next((soup.select_one(sel) for sel in preferred if soup.select_one(sel)),None) if special else next((soup.select_one(sel) for sel in SELECTORS if soup.select_one(sel)),None)
     if not chapter:return "",[]
