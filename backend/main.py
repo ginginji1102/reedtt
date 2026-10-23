@@ -256,3 +256,67 @@ async def image(req:ReadRequest):
             return Response(r.content,media_type=mime,headers={"Cache-Control":"public, max-age=3600"})
     except httpx.HTTPError as exc:
         raise HTTPException(502,"Không tải được ảnh từ máy chủ nguồn.") from exc
+
+# Convert the actual generated Word document to a readable, Unicode PDF.
+class ConvertWordRequest(BaseModel):
+    docx_base64: str
+
+@app.post("/convert-docx-pdf")
+async def convert_docx_pdf(req: ConvertWordRequest):
+    import base64
+    import io
+    import os
+    from xml.sax.saxutils import escape
+    from docx import Document
+    from docx.oxml.ns import qn
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, KeepTogether
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from matplotlib import font_manager
+    try:
+        data=base64.b64decode(req.docx_base64,validate=True)
+        if len(data)>18_000_000:raise HTTPException(413,"File Word quá lớn.")
+        doc=Document(io.BytesIO(data))
+        regular=font_manager.findfont(font_manager.FontProperties(family="DejaVu Sans"))
+        bold=font_manager.findfont(font_manager.FontProperties(family="DejaVu Sans",weight="bold"))
+        if "ReedttUnicode" not in pdfmetrics.getRegisteredFontNames():
+            pdfmetrics.registerFont(TTFont("ReedttUnicode",regular))
+            pdfmetrics.registerFont(TTFont("ReedttUnicodeBold",bold))
+            pdfmetrics.registerFontFamily("ReedttUnicode",normal="ReedttUnicode",bold="ReedttUnicodeBold")
+        out=io.BytesIO()
+        pdf=SimpleDocTemplate(out,pagesize=A4,leftMargin=36,rightMargin=36,topMargin=36,bottomMargin=36,title=doc.core_properties.title or "Reedtt")
+        styles={
+          "Normal":ParagraphStyle("Body",fontName="ReedttUnicode",fontSize=11,leading=16.5,spaceAfter=8,wordWrap="CJK"),
+          "Heading2":ParagraphStyle("Chapter",fontName="ReedttUnicodeBold",fontSize=11,leading=16.5,spaceBefore=12,spaceAfter=6,keepWithNext=True),
+          "StoryTitle":ParagraphStyle("Title",fontName="ReedttUnicodeBold",fontSize=25,leading=31,textColor="#1F3864",alignment=TA_CENTER,spaceAfter=12,keepWithNext=True)
+        }
+        flow=[]
+        from docx.oxml.ns import qn
+        from PIL import Image as PILImage
+        for p in doc.paragraphs:
+            kind=p.style.name if p.style else "Normal"
+            if kind in ("Heading 2","Heading2"):kind="Heading2"
+            if kind not in styles:kind="Normal"
+            txt=p.text.strip()
+            if txt:
+                flow.append(Paragraph(escape(txt),styles[kind]))
+            for run in p.runs:
+                for blip in run._element.xpath(".//a:blip"):
+                    rid=blip.get(qn("r:embed"))
+                    if not rid or rid not in p.part.related_parts:continue
+                    raw=p.part.related_parts[rid].blob
+                    try:
+                        picture=PILImage.open(io.BytesIO(raw))
+                        w,h=picture.size
+                        ratio=min(1,450/max(w,1),540/max(h,1))
+                        flow.append(Image(io.BytesIO(raw),width=w*ratio,height=h*ratio))
+                        flow.append(Spacer(1,8))
+                    except Exception:continue
+        if not flow:raise HTTPException(400,"File Word không có nội dung.")
+        pdf.build(flow)
+        return Response(content=out.getvalue(),media_type="application/pdf",headers={"Content-Disposition":'attachment; filename="reedtt.pdf"'})
+    except HTTPException:raise
+    except Exception as exc:raise HTTPException(422,"Không thể chuyển Word thành PDF: "+str(exc)[:180])
