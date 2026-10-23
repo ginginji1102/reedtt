@@ -113,31 +113,18 @@ def chapter_links(soup,base,story_path):
     elif host.endswith("inkitt.com"):
         selectors+=", .chapters-list a[href],a[href*='/chapters/'],a[href*='/chapter/']"
     if host.endswith("wordpress.com"):
-        # WordPress story indexes typically list chapters as ordinary links inside post content.
-        # Never scan sidebars, navigation, related posts, or the comment section.
-        article=soup.select_one(".entry-content,.post-content,.entry,.post-entry,[itemprop='articleBody']")
+        # WordPress indexes link chapters by visible title; URL slugs are arbitrary.
+        article=soup.select_one(".entry-content,.post-content,.entry-content-wrapper,article .content,[itemprop='articleBody'],article")
         if article:
+            chapter_label=re.compile(r"^(?:chương|chuong|chapter|chap)\s*[:.\-–]?\s*0*\d+\b",re.I)
+            extra_label=re.compile(r"(?:phiên ngoại|phien ngoai|ngoại truyện|ngoai truyen|extra|ngoại phiên)",re.I)
             for a in article.select("a[href]"):
-                if a.find_parent(["nav","aside","footer"]) or a.find_parent(class_=re.compile(r"comment|related|share|social|widget",re.I)):continue
+                if a.find_parent(["nav","aside","footer"]) or a.find_parent(class_=re.compile(r"comment|related|share|social|widget|pagination",re.I)):continue
                 label=a.get_text(" ",strip=True)
-                if not re.search(r"^(?:chương|chuong|chapter|chap)\\s*0*\\d+(?:\\b|\\s|$)",label,re.I):
-                    continue
+                if not (chapter_label.search(label) or extra_label.search(label)):continue
                 href=normalized_url(base,a.get("href",""))
                 if not href or urlparse(href).path.rstrip("/")==story_path.rstrip("/"):continue
                 found[href]={"title":label[:180],"url":href}
-            # Extra chapters are grouped after a heading like 'Phiên Ngoại'.
-            for heading in article.select("h1,h2,h3,h4,h5,h6,p,strong,b"):
-                if not re.fullmatch(r"(?:phiên ngoại|phien ngoai|ngoại truyện|ngoai truyen)\\s*:?",heading.get_text(" ",strip=True),re.I):continue
-                parent=heading.parent
-                if not parent:continue
-                for sibling in parent.next_siblings:
-                    if getattr(sibling,"name",None) in ("h1","h2","h3","h4","h5","h6"):break
-                    if not hasattr(sibling,"select"):continue
-                    for a in sibling.select("a[href]"):
-                        label=a.get_text(" ",strip=True)
-                        href=normalized_url(base,a.get("href",""))
-                        if label and href and urlparse(href).path.rstrip("/")!=story_path.rstrip("/"):
-                            found[href]={"title":"Phiên ngoại: "+label[:155],"url":href}
         return list(found.values())
     for a in soup.select(selectors):
         href=normalized_url(base,a.get("href",""))
