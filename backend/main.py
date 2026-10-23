@@ -319,12 +319,30 @@ async def inkitt_info(client, story_url):
         chapters.append({"title":f"{number}. {name}"[:180],"url":f"{base}/chapters/{number}"})
     author=data.get("user") or {}
     cover=data.get("vertical_cover") or {}
+    # Inkitt descriptions can be HTML and may be stored under several summary fields.
+    summary=data.get("summary") or data.get("description") or data.get("synopsis") or ""
+    if isinstance(summary,dict):
+        summary=summary.get("text") or summary.get("content") or ""
+    if isinstance(summary,str):
+        summary_soup=BeautifulSoup(summary,"html.parser")
+        for br in summary_soup.select("br"):br.replace_with("\\n")
+        for p in summary_soup.select("p"):p.append("\\n\\n")
+        summary=summary_soup.get_text("",strip=False)
+        summary=re.sub(r"\\n{3,}","\\n\\n",summary).strip()
+    else:
+        summary=""
+    raw_genres=data.get("genres") or data.get("categories") or []
+    if not isinstance(raw_genres,list):raw_genres=[]
+    categories=[]
+    for genre in raw_genres:
+        name=genre.get("name") or genre.get("title") if isinstance(genre,dict) else genre
+        if isinstance(name,str) and name.strip():categories.append(name.strip())
     return {
         "title":str(data.get("title") or "Truyện Inkitt")[:200],
         "author":str(author.get("name") or "")[:120] if isinstance(author,dict) else "",
-        "description":str(data.get("summary") or data.get("description") or "")[:15000],
+        "description":summary[:15000],
         "cover":image_url(base,cover.get("url","")) if isinstance(cover,dict) else None,
-        "categories":[],
+        "categories":categories[:30],
         "chapters":chapters,
         "count":len(chapters),
         "truncated":len(data["chapters"])>1000,
