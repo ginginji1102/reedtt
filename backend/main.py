@@ -422,6 +422,30 @@ async def discover(req:ReadRequest):
                         if block.select_one("a[href]") and re.search(r"^(?:Chương|Chapter|Chap) +[0-9]+",block_text,re.I):break
                         if block_text and not block.find_parent(["p","h1","h2","h3","h4"]):lines.append(block_text)
                     if lines:description="\n\n".join(lines)[:15000]
+            # Some story pages keep the complete synopsis inside the Summary section,
+            # while meta descriptions and collapsed preview nodes contain only excerpts.
+            summary_candidates=[]
+            for selector in ("#summary",".story-summary",".summary-content",".summary-text",".story-description",".book-summary",".novel-summary","[itemprop='description']",".description",".summary"):
+                for node in soup.select(selector):
+                    from bs4 import BeautifulSoup as _BS
+                    copy=_BS(str(node),"html.parser")
+                    for junk in copy.select("script,style,button,.read-more,.show-more,.expand,.collapse,[role=button]"):
+                        junk.decompose()
+                    for br in copy.select("br"):
+                        br.replace_with("\n")
+                    for block in reversed(list(copy.select("p,li,blockquote"))):
+                        block.insert_before("\n\n")
+                        block.insert_after("\n\n")
+                    candidate=copy.get_text("",strip=False)
+                    candidate=re.sub(r"[ \\t]+"," ",candidate)
+                    candidate=re.sub(r" *\\n *","\\n",candidate)
+                    candidate=re.sub(r"\\n{3,}","\\n\\n",candidate).strip()
+                    if candidate and candidate not in summary_candidates:
+                        summary_candidates.append(candidate)
+            if summary_candidates:
+                best=max(summary_candidates,key=len)
+                if len(best)>len(description):
+                    description=best
             description=description or meta("meta[name=description]") or meta("meta[property='og:description']")
             description=re.sub(r"\s*(?:Xem thêm|Thu gọn|Đọc thêm|Show more|Read more)\s*$","",description,flags=re.I).strip()
             host=(urlparse(base).hostname or "").lower()
