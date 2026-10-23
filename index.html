@@ -16,8 +16,30 @@ button{border:0;background:linear-gradient(110deg,#555fe0,#8c69e8);color:#fff;pa
 button.alt{background:#353a68;box-shadow:none}button:hover{filter:brightness(1.13);transform:translateY(-1px)}
 .hint{font-size:13px;color:#b8accd;line-height:1.6}.status{margin-top:12px;padding:12px;border-radius:10px;background:#292d61;color:#eadcff}.status:empty,.preview:empty{display:none!important;padding:0;margin:0;border:0}.card:last-child{margin-bottom:0}main{margin-bottom:0}html{min-height:100%;background:#050b2a url("https://raw.githubusercontent.com/ginginji1102/reedtt/main/novel-box-sky.jpg?v=sky-photo-2") center top / cover fixed no-repeat}
 @media(max-width:600px){main{margin:30px auto}.cols,.formats{grid-template-columns:1fr}.card{padding:20px}}
-footer{display:none!important}</style></head>
-<body><header><img src="novel-box-logo.svg?v=white-eyes-2" alt="Novel Box" style="width:44px;height:44px;object-fit:contain;vertical-align:middle;margin-right:10px"><b>Novel Box</b></header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Dán một link truyện · Tìm chương tự động · Xuất Word, EPUB</p>
+footer{display:none!important}
+/* Day / Night appearance */
+.theme-switch{margin-left:auto;display:flex;align-items:center;gap:5px;padding:5px;background:rgba(7,12,40,.45);border:1px solid rgba(210,204,255,.3);border-radius:999px}
+.theme-switch button{padding:8px 13px;border-radius:999px;background:transparent;box-shadow:none;font-size:13px;font-weight:700;color:#d6d5ef;white-space:nowrap}
+.theme-switch button[aria-pressed="true"]{background:linear-gradient(110deg,#626be6,#9271e9);color:white;box-shadow:0 2px 8px #080d3e55}
+html[data-theme="day"]{color-scheme:light;background:#f2f4ff}
+html[data-theme="day"] body{color:#242748;background:linear-gradient(135deg,rgba(245,248,255,.92),rgba(232,233,255,.83)),url("https://raw.githubusercontent.com/ginginji1102/reedtt/main/novel-box-sky.jpg?v=sky-photo-2") center top / cover fixed no-repeat}
+html[data-theme="day"] header{background:linear-gradient(105deg,rgba(232,236,255,.97),rgba(213,216,251,.96),rgba(228,214,255,.96));border-color:#b5b8e3}
+html[data-theme="day"] header b{color:#292c68;text-shadow:none}
+html[data-theme="day"] h1,html[data-theme="day"] h2{color:#252c60}
+html[data-theme="day"] .lead,html[data-theme="day"] .hint,html[data-theme="day"] label{color:#545b7d}
+html[data-theme="day"] .card{background:linear-gradient(135deg,rgba(255,255,255,.94),rgba(244,243,255,.94));border-color:#c8cae9;box-shadow:0 12px 30px #555c9c1c}
+html[data-theme="day"] input,html[data-theme="day"] textarea,html[data-theme="day"] select{background:#fff;color:#222747;border-color:#b6badb}
+html[data-theme="day"] input::placeholder,html[data-theme="day"] textarea::placeholder{color:#7a809d}
+html[data-theme="day"] .formats label{background:#eff0ff;border-color:#c6c5e6;color:#30365c}
+html[data-theme="day"] .formats label:hover{background:#e2e3ff}
+html[data-theme="day"] button.alt{background:#e0e4f8;color:#2d3568}
+html[data-theme="day"] .status{background:#e7e7ff;color:#353469}
+html[data-theme="day"] .theme-switch{background:rgba(255,255,255,.75);border-color:#c2c6e9}
+html[data-theme="day"] .theme-switch button{color:#505a83}
+html[data-theme="day"] .theme-switch button[aria-pressed="true"]{color:#fff}
+@media(max-width:600px){header{flex-wrap:wrap}.theme-switch{margin-left:auto}.theme-switch button{padding:7px 10px}}
+</style></head>
+<body><header><img src="novel-box-logo.svg?v=white-eyes-2" alt="Novel Box" style="width:44px;height:44px;object-fit:contain;vertical-align:middle;margin-right:10px"><b>Novel Box</b><div class="theme-switch" role="group" aria-label="Chế độ giao diện"><button type="button" id="theme-day" aria-pressed="false">☀ Day</button><button type="button" id="theme-night" aria-pressed="true">☾ Night</button></div></header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Dán một link truyện · Tìm chương tự động · Xuất Word, EPUB</p>
 <section class="card"><h2>01 · Đường dẫn truyện</h2><label for="source">Nguồn truyện</label><select id="source"><option value="auto">Tự nhận diện theo link</option><option value="truyenfull.live">Truyenfull.live</option><option value="wikicv.org">Wikicv.org</option><option value="truyenmo.xyz">Truyenmo.xyz</option><option value="docln.net">Docln.net</option><option value="wattpad.com">Wattpad.com</option><option value="wordpress.com">WordPress.com</option></select><label for="url">Link trang truyện</label><input id="url" type="url" placeholder="https://trang-truyen.example/truyen/..."><p class="hint">Đọc chương công khai qua backend Render. Chỉ hỗ trợ các nguồn được cấu hình; không hỗ trợ chương khóa hoặc trả phí.</p><button type="button" class="alt" id="check">Thu thập nội dung truyện</button><div class="status" id="urlstatus" aria-live="polite"></div></section>
 <section class="card"><h2>Thông tin trang truyện</h2><div id="storymeta" class="hint">Ảnh bìa, mô tả, thể loại và tác giả sẽ được tự động lấy từ link truyện.</div></section>
 <section class="card"><h2>02 · Chọn định dạng</h2><div class="formats"><label><input type="radio" name="format" value="docx" checked>Word (.docx)</label><label><input type="radio" name="format" value="epub">EPUB (.epub)</label></div></section>
@@ -193,7 +215,23 @@ if(fmt==='docx'){
  save(await docx.Packer.toBlob(doc),name)
 }
 else if(fmt==='epub'){if(!window.JSZip)throw Error('Không tải được thư viện EPUB.');const zip=new JSZip();zip.file('mimetype','application/epub+zip',{compression:'STORE'});zip.file('META-INF/container.xml','<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');if(cover){zip.file('OEBPS/cover.'+cover.ext,cover.bytes)}inlineImages.forEach((im,i)=>zip.file('OEBPS/image'+i+'.'+im.ext,im.bytes));const paragraphs=bookParagraphs(d);
-zip.file('OEBPS/chapter.xhtml','<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>'+escapeXml(d.title)+'</title></head><body><h1>'+escapeXml(d.title)+'</h1>'+(cover?'<div><img src="cover.'+cover.ext+'" alt="Ảnh bìa truyện" style="max-width:85%;height:auto"/></div>':'')+paragraphs.map(p=>p.heading?'<h2>'+escapeXml(p.text)+'</h2>':'<p>'+escapeXml(p.text)+'</p>').join('')+inlineImages.map((im,i)=>'<p><img src="image'+i+'.'+im.ext+'" alt="Minh họa chương" style="max-width:95%;height:auto"/></p>').join('')+'</body></html>');
+zip.file('OEBPS/chapter.xhtml','<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>'+escapeXml(d.title)+'</title></head><body><h1>'+escapeXml(d.title)+'</h1>'+(cover?'<div><img src="cover.'+cover.ext+'" alt="Ảnh bìa truyện" style="max-width:85%;height:auto"/></div>':'')+paragraphs.map(p=>p.heading?'<h2>'+escapeXml(p.text)+'</h2>':'<p>'+escapeXml(p.text)+'</p>').join('')+inlineImages.map((im,i)=>'<p><img src="image'+i+'.'+im.ext+'" alt="Minh họa chương" style="max-width:95%;height:auto"/></p>').join('')+'<script>
+(function(){
+ const key='novel-box-theme';
+ const day=document.getElementById('theme-day'),night=document.getElementById('theme-night');
+ function setTheme(mode){
+  const selected=mode==='day'?'day':'night';
+  document.documentElement.setAttribute('data-theme',selected);
+  day.setAttribute('aria-pressed',String(selected==='day'));
+  night.setAttribute('aria-pressed',String(selected==='night'));
+  try{localStorage.setItem(key,selected)}catch(e){}
+ }
+ let saved='night';try{saved=localStorage.getItem(key)||'night'}catch(e){}
+ setTheme(saved);
+ day.addEventListener('click',()=>setTheme('day'));
+ night.addEventListener('click',()=>setTheme('night'));
+})();
+</script></body></html>');
 zip.file('OEBPS/nav.xhtml','<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>Mục lục</title></head><body><nav xmlns:epub="http://www.idpf.org/2007/ops" epub:type="toc"><ol><li><a href="chapter.xhtml">Nội dung</a></li></ol></nav></body></html>');zip.file('OEBPS/content.opf','<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="bookid">urn:uuid:reedtt-demo</dc:identifier><dc:title>'+escapeXml(d.title)+'</dc:title><dc:language>vi</dc:language><dc:creator>'+escapeXml(d.author)+'</dc:creator></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>' +(cover?'<item id="cover" href="cover.'+cover.ext+'" media-type="'+cover.mime+'" properties="cover-image"/>':'') +inlineImages.map((im,i)=>'<item id="img'+i+'" href="image'+i+'.'+im.ext+'" media-type="'+im.mime+'"/>').join('')+'<item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter"/></spine></package>');save(await zip.generateAsync({type:'blob',mimeType:'application/epub+zip'}),name)}
 status.textContent='Đã tạo '+fmt.toUpperCase()+' thành công.'}catch(e){status.textContent='Lỗi: '+e.message}};
 </script></body></html>
