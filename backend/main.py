@@ -320,7 +320,12 @@ async def discover(req:ReadRequest):
                     lines=[]
                     for block in article.select("p,h1,h2,h3,h4"):
                         if block.find_parent(["nav","aside","footer"]) or block.find_parent(class_=re.compile("comment|widget|related|share",re.I)):continue
-                        block_text=block.get_text(" ",strip=True)
+                        # Preserve explicit HTML line breaks within a single WordPress paragraph.
+                        for br in block.select("br"):
+                            br.replace_with("\n")
+                        block_text=block.get_text(" ",strip=False)
+                        block_text=re.sub(r"[ \t]*\n[ \t]*","\n",block_text)
+                        block_text=re.sub(r"[ \t]+"," ",block_text).strip()
                         if re.search(r"^(?:Chương|Chapter|Chap) +[0-9]+",block_text,re.I):break
                         if block.select_one("a[href]") and re.search(r"^(?:Chương|Chapter|Chap) +[0-9]+",block_text,re.I):break
                         if block_text and not block.find_parent(["p","h1","h2","h3","h4"]):lines.append(block_text)
