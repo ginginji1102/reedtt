@@ -25,7 +25,7 @@ button.alt{background:#3a2d4c;box-shadow:none}button:hover{filter:brightness(1.1
 <section class="card"><h2>04 · Nội dung truyện</h2><textarea id="content" placeholder="Nội dung chương sau khi thu thập sẽ xuất hiện ở đây..."></textarea><p class="hint">Chỉ sử dụng nội dung bạn có quyền sao chép và xuất bản.</p><button type="button" class="alt" id="show">Xem trước</button> <button type="button" id="download">Tạo file ↓</button><div class="status" id="status" aria-live="polite"></div><div class="preview" id="preview"></div></section></main><footer>Reedtt · GitHub Pages + Render · Chỉ xử lý nội dung công khai mà bạn có quyền sử dụng</footer>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const supportedHosts=['truyenfull.live','wikicv.org','truyenmo.xyz','docln.net','wattpad.com','wordpress.com'];
@@ -195,5 +195,37 @@ if(fmt==='docx'){
 else if(fmt==='epub'){if(!window.JSZip)throw Error('Không tải được thư viện EPUB.');const zip=new JSZip();zip.file('mimetype','application/epub+zip',{compression:'STORE'});zip.file('META-INF/container.xml','<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');if(cover){zip.file('OEBPS/cover.'+cover.ext,cover.bytes)}inlineImages.forEach((im,i)=>zip.file('OEBPS/image'+i+'.'+im.ext,im.bytes));const paragraphs=bookParagraphs(d);
 zip.file('OEBPS/chapter.xhtml','<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>'+escapeXml(d.title)+'</title></head><body><h1>'+escapeXml(d.title)+'</h1>'+(cover?'<div><img src="cover.'+cover.ext+'" alt="Ảnh bìa truyện" style="max-width:85%;height:auto"/></div>':'')+paragraphs.map(p=>p.heading?'<h2>'+escapeXml(p.text)+'</h2>':'<p>'+escapeXml(p.text)+'</p>').join('')+inlineImages.map((im,i)=>'<p><img src="image'+i+'.'+im.ext+'" alt="Minh họa chương" style="max-width:95%;height:auto"/></p>').join('')+'</body></html>');
 zip.file('OEBPS/nav.xhtml','<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>Mục lục</title></head><body><nav xmlns:epub="http://www.idpf.org/2007/ops" epub:type="toc"><ol><li><a href="chapter.xhtml">Nội dung</a></li></ol></nav></body></html>');zip.file('OEBPS/content.opf','<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="bookid">urn:uuid:reedtt-demo</dc:identifier><dc:title>'+escapeXml(d.title)+'</dc:title><dc:language>vi</dc:language><dc:creator>'+escapeXml(d.author)+'</dc:creator></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>' +(cover?'<item id="cover" href="cover.'+cover.ext+'" media-type="'+cover.mime+'" properties="cover-image"/>':'') +inlineImages.map((im,i)=>'<item id="img'+i+'" href="image'+i+'.'+im.ext+'" media-type="'+im.mime+'"/>').join('')+'<item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter"/></spine></package>');save(await zip.generateAsync({type:'blob',mimeType:'application/epub+zip'}),name)}
-else{if(!window.jspdf)throw Error('Không tải được thư viện PDF.');const pdf=new jspdf.jsPDF();pdf.setFontSize(16);pdf.text(d.title,12,20);let y=32;if(cover){try{const b64=Array.from(cover.bytes,x=>String.fromCharCode(x)).join('');pdf.addImage('data:'+cover.mime+';base64,'+btoa(b64),cover.ext==='png'?'PNG':'JPEG',12,30,85,120);y=160}catch(e){console.warn('Cover PDF:',e)}}pdf.setFontSize(11);for(const para of bookParagraphs(d)){if(para.heading){if(y>264){pdf.addPage();y=20}pdf.setFontSize(14);y+=5;pdf.text(para.text,12,y);y+=11;pdf.setFontSize(11);continue}for(const line of pdf.splitTextToSize(para.text,180)){if(y>280){pdf.addPage();y=20}pdf.text(line,12,y);y+=6}y+=4}for(const im of inlineImages){try{if(y>175){pdf.addPage();y=20}const b64=btoa(Array.from(im.bytes,x=>String.fromCharCode(x)).join(''));pdf.addImage('data:'+im.mime+';base64,'+b64,im.ext==='png'?'PNG':'JPEG',12,y,110,95);y+=103}catch(e){console.warn('Chapter image:',e)}}pdf.save(name);status.textContent='Đã tạo PDF. Lưu ý: font PDF mặc định có thể hiển thị sai dấu tiếng Việt.';return}status.textContent='Đã tạo '+fmt.toUpperCase()+' thành công.'}catch(e){status.textContent='Lỗi: '+e.message}};
+else{
+ if(!window.jspdf||!window.html2canvas)throw Error('Không tải được thư viện PDF.');
+ const pdf=new jspdf.jsPDF({unit:'mm',format:'a4',compress:true});
+ const root=document.createElement('div');
+ root.style.cssText='position:fixed;left:-12000px;top:0;width:794px;background:#fff;color:#111;font-family:Tahoma,Arial,sans-serif;font-size:14.67px;line-height:1.5;z-index:-1';
+ document.body.appendChild(root);
+ const pages=[];
+ const newPage=()=>{const page=document.createElement('div');page.style.cssText='width:794px;height:1122px;box-sizing:border-box;padding:76px 70px;background:white;overflow:hidden';root.appendChild(page);pages.push(page);return page};
+ let page=newPage();
+ const addBlock=(node)=>{page.appendChild(node);if(page.scrollHeight>1122&&page.children.length>1){page.removeChild(node);page=newPage();page.appendChild(node)}};
+ const textBlock=(value,heading=false)=>{const el=document.createElement(heading?'h2':'p');el.textContent=value;el.style.cssText=heading?'font-family:Tahoma;font-size:17px;font-weight:bold;margin:18px 0 12px;color:#111':'font-family:Tahoma;font-size:14.67px;line-height:1.5;margin:0 0 12px;white-space:pre-wrap;overflow-wrap:anywhere';addBlock(el)};
+ const title=document.createElement('h1');title.textContent=d.title;title.style.cssText='font: bold 48px Cambria,serif;color:#1F3864;text-align:center;margin:0 0 20px';addBlock(title);
+ const imgBlock=(im)=>{const el=document.createElement('img');el.src='data:'+im.mime+';base64,'+btoa(Array.from(im.bytes,x=>String.fromCharCode(x)).join(''));el.style.cssText='display:block;max-width:65%;max-height:420px;object-fit:contain;margin:12px auto';addBlock(el)};
+ if(cover)imgBlock(cover);
+ if(d.author)textBlock('Tác giả: '+d.author);
+ if(storyMeta.categories?.length)textBlock('Thể loại: '+storyMeta.categories.join(', '));
+ if(storyMeta.description){textBlock('Văn án',true);for(const p of sourceParagraphs(storyMeta.description))textBlock(p)}
+ for(let i=0;i<downloaded.length;i++){textBlock(downloaded[i].title,true);for(const p of sourceParagraphs(downloaded[i].content||'[Không tải được nội dung]'))textBlock(p);for(const im of inlineImages.filter(x=>x.chapter===i))imgBlock(im)}
+ if(!downloaded.length)for(const p of sourceParagraphs($('content').value))textBlock(p);
+ try{
+  await document.fonts.ready;
+  for(let i=0;i<pages.length;i++){
+   status.textContent='Đang tạo PDF trang '+(i+1)+'/'+pages.length;
+   const canvas=await html2canvas(pages[i],{scale:1.35,backgroundColor:'#ffffff',useCORS:true,logging:false});
+   if(i)pdf.addPage();
+   pdf.addImage(canvas.toDataURL('image/jpeg',0.83),'JPEG',0,0,210,297);
+  }
+  pdf.save(name);
+  status.textContent='Đã tạo PDF '+pages.length+' trang, hỗ trợ dấu tiếng Việt.';
+ }finally{root.remove()}
+ return;
+}
+status.textContent='Đã tạo '+fmt.toUpperCase()+' thành công.'}catch(e){status.textContent='Lỗi: '+e.message}};
 </script></body></html>
