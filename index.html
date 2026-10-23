@@ -65,6 +65,23 @@ html[data-theme="day"] .theme-switch button[aria-pressed="true"]{background:line
 <section class="card"><h2>02 · Chọn định dạng</h2><div class="formats"><label><input type="radio" name="format" value="docx" checked>Word (.docx)</label><label><input type="radio" name="format" value="epub">EPUB (.epub)</label></div></section>
 <section class="card"><h2>03 · Thông tin truyện</h2><div class="cols"><div><label for="title">Tên truyện</label><input id="title" value="Truyện mẫu"></div><div><label for="author">Tác giả</label><input id="author" placeholder="Không bắt buộc"></div></div><div class="cols"><div><label for="start">Từ chương</label><input id="start" type="number" min="1" value="1"></div><div><label for="end">Đến chương</label><input id="end" type="number" min="1" value="2"></div></div><p class="hint" id="chapterinfo">Chỉ cần dán link trang truyện, hệ thống sẽ tự tìm chương. Có thể chọn phạm vi sau khi quét.</p><button type="button" class="alt" id="fetchchapters">Tải nội dung các chương đã chọn</button></section>
 <section class="card"><h2>04 · Nội dung truyện</h2><textarea id="content" placeholder="Nội dung chương sau khi thu thập sẽ xuất hiện ở đây..."></textarea><p class="hint">Chỉ sử dụng nội dung bạn có quyền sao chép và xuất bản.</p><button type="button" class="alt" id="show">Xem trước</button> <button type="button" id="download">Tạo file ↓</button><div class="status" id="status" aria-live="polite"></div><div class="preview" id="preview"></div></section></main>
+<script>
+(function(){
+ const key='novel-box-theme';
+ const day=document.getElementById('theme-day'),night=document.getElementById('theme-night');
+ function setTheme(mode){
+  const selected=mode==='day'?'day':'night';
+  document.documentElement.setAttribute('data-theme',selected);
+  day.setAttribute('aria-pressed',String(selected==='day'));
+  night.setAttribute('aria-pressed',String(selected==='night'));
+  try{localStorage.setItem(key,selected)}catch(e){}
+ }
+ let saved='night';try{saved=localStorage.getItem(key)||'night'}catch(e){}
+ setTheme(saved);
+ day.addEventListener('click',()=>setTheme('day'));
+ night.addEventListener('click',()=>setTheme('night'));
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
 
@@ -235,25 +252,9 @@ if(fmt==='docx'){
  save(await docx.Packer.toBlob(doc),name)
 }
 else if(fmt==='epub'){if(!window.JSZip)throw Error('Không tải được thư viện EPUB.');const zip=new JSZip();zip.file('mimetype','application/epub+zip',{compression:'STORE'});zip.file('META-INF/container.xml','<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');if(cover){zip.file('OEBPS/cover.'+cover.ext,cover.bytes)}inlineImages.forEach((im,i)=>zip.file('OEBPS/image'+i+'.'+im.ext,im.bytes));const paragraphs=bookParagraphs(d);
-zip.file('OEBPS/chapter.xhtml','<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>'+escapeXml(d.title)+'</title></head><body><h1>'+escapeXml(d.title)+'</h1>'+(cover?'<div><img src="cover.'+cover.ext+'" alt="Ảnh bìa truyện" style="max-width:85%;height:auto"/></div>':'')+paragraphs.map(p=>p.heading?'<h2>'+escapeXml(p.text)+'</h2>':'<p>'+escapeXml(p.text)+'</p>').join('')+inlineImages.map((im,i)=>'<p><img src="image'+i+'.'+im.ext+'" alt="Minh họa chương" style="max-width:95%;height:auto"/></p>').join('')+'</body></html>');
-zip.file('OEBPS/nav.xhtml','<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>Mục lục</title></head><body><nav xmlns:epub="http://www.idpf.org/2007/ops" epub:type="toc"><ol><li><a href="chapter.xhtml">Nội dung</a></li></ol></nav></body></html>');zip.file('OEBPS/content.opf','<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="bookid">urn:uuid:reedtt-demo</dc:identifier><dc:title>'+escapeXml(d.title)+'</dc:title><dc:language>vi</dc:language><dc:creator>'+escapeXml(d.author)+'</dc:creator></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>' +(cover?'<item id="cover" href="cover.'+cover.ext+'" media-type="'+cover.mime+'" properties="cover-image"/>':'') +inlineImages.map((im,i)=>'<item id="img'+i+'" href="image'+i+'.'+im.ext+'" media-type="'+im.mime+'"/>').join('')+'<item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter"/></spine></package>');save(await zip.generateAsync({type:'blob',mimeType:'application/epub+zip'}),name)}
+zip.file('OEBPS/chapter.xhtml','<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>'+escapeXml(d.title)+'<\/title><\/head><body><h1>'+escapeXml(d.title)+'<\/h1>'+(cover?'<div><img src="cover.'+cover.ext+'" alt="Ảnh bìa truyện" style="max-width:85%;height:auto"/><\/div>':'')+paragraphs.map(p=>p.heading?'<h2>'+escapeXml(p.text)+'<\/h2>':'<p>'+escapeXml(p.text)+'<\/p>').join('')+inlineImages.map((im,i)=>'<p><img src="image'+i+'.'+im.ext+'" alt="Minh họa chương" style="max-width:95%;height:auto"/><\/p>').join('')+'<\/body><\/html>');
+zip.file('OEBPS/nav.xhtml','<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>Mục lục<\/title><\/head><body><nav xmlns:epub="http://www.idpf.org/2007/ops" epub:type="toc"><ol><li><a href="chapter.xhtml">Nội dung<\/a><\/li><\/ol><\/nav><\/body><\/html>');zip.file('OEBPS/content.opf','<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="bookid">urn:uuid:reedtt-demo</dc:identifier><dc:title>'+escapeXml(d.title)+'</dc:title><dc:language>vi</dc:language><dc:creator>'+escapeXml(d.author)+'</dc:creator><\/metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>' +(cover?'<item id="cover" href="cover.'+cover.ext+'" media-type="'+cover.mime+'" properties="cover-image"/>':'') +inlineImages.map((im,i)=>'<item id="img'+i+'" href="image'+i+'.'+im.ext+'" media-type="'+im.mime+'"/>').join('')+'<item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/><\/manifest><spine><itemref idref="chapter"/><\/spine><\/package>');save(await zip.generateAsync({type:'blob',mimeType:'application/epub+zip'}),name)}
 status.textContent='Đã tạo '+fmt.toUpperCase()+' thành công.'}catch(e){status.textContent='Lỗi: '+e.message}};
 </script>
-<script>
-(function(){
- const key='novel-box-theme';
- const day=document.getElementById('theme-day'),night=document.getElementById('theme-night');
- function setTheme(mode){
-  const selected=mode==='day'?'day':'night';
-  document.documentElement.setAttribute('data-theme',selected);
-  day.setAttribute('aria-pressed',String(selected==='day'));
-  night.setAttribute('aria-pressed',String(selected==='night'));
-  try{localStorage.setItem(key,selected)}catch(e){}
- }
- let saved='night';try{saved=localStorage.getItem(key)||'night'}catch(e){}
- setTheme(saved);
- day.addEventListener('click',()=>setTheme('day'));
- night.addEventListener('click',()=>setTheme('night'));
-})();
-</script>
+
 </body></html>
