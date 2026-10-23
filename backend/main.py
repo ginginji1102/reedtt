@@ -355,9 +355,6 @@ async def convert_docx_pdf(req: ConvertWordRequest):
         return Response(content=out.getvalue(),media_type="application/pdf",headers={"Content-Disposition":'attachment; filename="reedtt.pdf"'})
     except HTTPException:raise
     except Exception as exc:raise HTTPException(422,"Không thể chuyển Word thành PDF: "+str(exc)[:180])
-,re.I)
-        content='\n\n'.join(p for p in content.split('\n\n') if not ui.fullmatch(p.strip()))
-    return content[:300000],images[:50]
 
 @app.post("/discover")
 async def discover(req:ReadRequest):
