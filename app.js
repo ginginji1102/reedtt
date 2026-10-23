@@ -99,12 +99,19 @@ async function loadChapters(){
      result=items.map(item=>({title:item.title,url:item.url,content:'',images:[],error:lastError?.message||'Không tải được'}));
     }
    }
+   const blocked=result.some(x=>!x.content&&/Inkitt.*(?:403|401|429)|Inkitt.*từ chối/i.test(x.error||''));
+   if(blocked){
+    downloaded.push(...result);
+    $('content').value=downloaded.filter(x=>x.content).map(x=>x.title+'\\n\\n'+x.content).join('\\n\\n\\n');
+    status.textContent='Inkitt đang chặn truy cập từ máy chủ (HTTP 403/401/429). Đã dừng tải để tránh thử lại hàng trăm chương. Không thể lấy nội dung khi nguồn từ chối kết nối.';
+    return;
+   }
    downloaded.push(...result);
    $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||'[Chương tải lỗi — xem thông báo trạng thái]')).join('\n\n\n');
    status.textContent='Đã xử lý '+downloaded.length+'/'+total+' chương'+(failures?' · '+failures+' chương cần tải lại':'');
   }
   const failed=downloaded.filter(x=>!x.content);
-  if(failed.length){
+  if(failed.length && !failed.some(x=>/Inkitt.*(?:403|401|429)|Inkitt.*từ chối/i.test(x.error||''))){
    status.textContent='Đã quét '+total+' chương; đang thử tải lại '+failed.length+' chương bị lỗi...';
    for(let i=0;i<failed.length;i+=5){
     const items=failed.slice(i,i+5);
