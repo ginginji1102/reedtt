@@ -23,7 +23,7 @@ function cleanText(node){return (node?.innerText||node?.textContent||'').replace
 function safeUrl(value){const u=new URL(value);if(!['https:','http:'].includes(u.protocol))throw Error('Chỉ hỗ trợ đường dẫn HTTP hoặc HTTPS.');return u}
 
 const inkittAlt=$('inkitt-alternative');
-function showInkittAlternative(){let isInkitt=false;try{isInkitt=new URL($('url').value.trim()).hostname.toLowerCase().endsWith('inkitt.com')}catch(e){}inkittAlt.style.display=isInkitt?'block':'none'}
+function showInkittAlternative(){let isInkitt=false;try{isInkitt=new URL($('url').value.trim()).hostname.toLowerCase().endsWith('inkitt.com')}catch(e){}inkittAlt.style.display=isInkitt?'block':'none';$('inkitt-browser-capture').style.display=isInkitt?'block':'none'}
 $('url').addEventListener('input',showInkittAlternative);
 showInkittAlternative();
 $('inkitt-copy-link').addEventListener('click',async()=>{try{const u=new URL($('url').value.trim());if(!u.hostname.toLowerCase().endsWith('inkitt.com'))throw Error('Hãy nhập link Inkitt trước.');await navigator.clipboard.writeText(u.href);$('inkitt-copy-status').textContent='Đã sao chép liên kết. Dán vào WP Downloader.'}catch(e){$('inkitt-copy-status').textContent='Không sao chép tự động được. Hãy chọn và sao chép link ở ô phía trên.'}});
@@ -31,6 +31,26 @@ const API='https://novelbox-reader-api.onrender.com';
 let discovered=[];
 let downloaded=[];
 let storyMeta={};
+const manualInkittChapters=new Map();
+function refreshManualInkitt(){
+ const chapters=[...manualInkittChapters.values()].sort((a,b)=>a.number-b.number);
+ downloaded=chapters.map(({number,...chapter})=>chapter);
+ $('content').value=downloaded.map(c=>c.title+'\n\n'+c.content).join('\n\n\n');
+ $('inkitt-manual-status').textContent='Đã lưu '+chapters.length+' chương trong phiên hiện tại. Có thể chọn Word hoặc EPUB rồi nhấn Tải file.';
+ $('status').textContent=chapters.length+' chương đã nhập từ văn bản hiển thị, sẵn sàng xuất file.';
+}
+$('inkitt-save-chapter').addEventListener('click',()=>{
+ const number=Number($('inkitt-chapter-number').value),content=$('inkitt-chapter-text').value.replace(/\r\n?/g,'\n').trim();
+ if(!Number.isInteger(number)||number<1||!content){$('inkitt-manual-status').textContent='Nhập số chương hợp lệ và dán nội dung chương.';return}
+ const title=$('inkitt-chapter-title').value.trim()||'Chương '+number;
+ manualInkittChapters.set(number,{number,title,url:'manual-inkitt:'+number,content,images:[]});
+ refreshManualInkitt();
+ $('inkitt-chapter-number').value=number+1;
+ $('inkitt-chapter-title').value='';
+ $('inkitt-chapter-text').value='';
+});
+$('inkitt-clear-chapters').addEventListener('click',()=>{manualInkittChapters.clear();refreshManualInkitt()});
+
 $('url').addEventListener('input',()=>{try{const host=new URL($('url').value).hostname.replace(/^www\./,'').toLowerCase();const match=[...$('source').options].find(o=>o.value!=='auto'&&(host===o.value||host.endsWith('.'+o.value)));$('source').value=match?match.value:'auto'}catch{$('source').value='auto'}});
 async function api(path,body){
  let r;
