@@ -14,7 +14,7 @@ from pydantic import BaseModel
 app = FastAPI(title="Reedtt Reader API")
 app.add_middleware(CORSMiddleware, allow_origins=["https://yuu110299.github.io", "https://ginginji1102.github.io"], allow_methods=["GET","POST"], allow_headers=["*"])
 
-ALLOWED = ("truyenfull.live", "wattpad.com", "wordpress.com", "navyteams.com", "inkitt.com", "giatocvuongtai.com")
+ALLOWED = ("truyenfull.live", "wattpad.com", "wordpress.com", "navyteams.com", "inkitt.com", "giatocvuongtai.com", "luotnovel1.site")
 SELECTORS = ("#chapter-content", "#chapterContent", "#chapter-content-body", ".chapter-reading", ".chapter-body", ".chapter-text", ".reading-content", ".entry-content", ".chapter-content", ".reading-content", ".entry-content", ".chapter-c", "article", "[itemprop=articleBody]")
 class ReadRequest(BaseModel):
     url: str
@@ -119,6 +119,8 @@ def chapter_links(soup,base,story_path):
     if host.endswith("giatocvuongtai.com"):
         # Astro story pages link to /reader/?storyId=UUID&chapter=UUID.
         selectors+=", a[href*='/reader'][href*='storyId='][href*='chapter=']"
+    if host.endswith("luotnovel1.site"):
+        selectors += ", .chapter-list a, .list-chapter a, [class*='chapter'] a[href], a[href*='/chuong-'], a[href*='/chapter-'], a[href*='/truyen-chu/']"
     if host.endswith("wordpress.com"):
         # WebToEpub WordpressBaseParser: take ALL anchors in the article content,
         # not just links prefixed "Chapter". This includes titled extras.
@@ -159,6 +161,9 @@ def chapter_links(soup,base,story_path):
             heading=a.select_one("strong,p")
             label=heading.get_text(" ",strip=True) if heading else ""
             if not re.fullmatch(r"(?:chương|chuong|chapter)\s*\d+",label,re.I):continue
+        elif host.endswith("luotnovel1.site"):
+            if target.hostname != host or not re.search(r"(?:chuong|chapter|chap)[-_ /]?\\d+|/\\d+(?:/|$)",target.path,re.I):
+                if not re.search(r"^(?:chương|chuong|chapter)\\s*\\d+",label,re.I):continue
         elif not re.search(r"(chương|chuong|chapter)\s*[-:]?\s*\d+|/(chuong|chapter)[-_]?\d+",label+" "+href,re.I):continue
         if host.endswith("navyteams.com"):
             # Chapter list entries may append publication dates in child elements.
@@ -238,6 +243,8 @@ def chapter_body(soup, source_url=''):
     host=(urlparse(source_url).hostname or '').lower()
     special=host.endswith(('wattpad.com','inkitt.com'))
     preferred=(('.story-page-text','#story-text-container') if host.endswith('inkitt.com') else ())+('[data-testid=story-part-content]','.story-part-content','.panel-reading','.reading-content','.chapter-text','.chapter-content')
+    if host.endswith("luotnovel1.site"):
+        preferred=("#chapter-content","#chapterContent",".chapter-content",".chapter-body",".reading-content",".read-content",".chapter-text",".entry-content",".content-chapter",".novel-content","article", "[class*='chapter-content']")
     if host.endswith("navyteams.com"):
         # Read only the actual visible novel body; avoid generic page containers.
         chapter=soup.select_one("#novelContent")
