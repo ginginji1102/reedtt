@@ -122,15 +122,21 @@ async function loadChapters(){
 }
 $('fetchchapters').onclick=loadChapters;
 const escapeXml=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function cleanSourceMarks(text){
+ return String(text||'').replace(/(?:truyenfullvn|truyenfulllive|truyenfull|truyen full)/gi,'').replace(/[ \\t]{2,}/g,' ').replace(/ *\\n */g,'\\n').trim();
+}
+function sourceParagraphs(text){
+ return cleanSourceMarks(text).split(/\\n{2,}/).map(x=>x.replace(/\\n/g,' ').trim()).filter(Boolean);
+}
 function bookParagraphs(d){
  const out=[];
- if(storyMeta.description){out.push({text:'Giới thiệu truyện',heading:true});for(const p of storyMeta.description.split(/\n+/))if(p.trim())out.push({text:p.trim()})}
+ if(storyMeta.description){out.push({text:'Giới thiệu truyện',heading:true});for(const p of sourceParagraphs(storyMeta.description))if(p.trim())out.push({text:p.trim()})}
  if(storyMeta.categories?.length)out.push({text:'Thể loại: '+storyMeta.categories.join(', ')});
- if(downloaded.length){for(const chapter of downloaded){out.push({text:chapter.title,heading:true});for(const p of (chapter.content||'[Không tải được nội dung]').split(/\n+/))if(p.trim())out.push({text:p.trim()})}}
- else for(const p of $('content').value.split(/\n+/))if(p.trim())out.push({text:p.trim()});
+ if(downloaded.length){for(const chapter of downloaded){out.push({text:chapter.title,heading:true});for(const p of sourceParagraphs(chapter.content||'[Không tải được nội dung]'))if(p.trim())out.push({text:p.trim()})}}
+ else for(const p of sourceParagraphs($('content').value))if(p.trim())out.push({text:p.trim()});
  return out;
 }
-const get=()=>({title:$('title').value.trim()||'Truyện mẫu',author:$('author').value.trim(),body:[storyMeta.description?'Giới thiệu truyện\n'+storyMeta.description:'',storyMeta.categories?.length?'Thể loại: '+storyMeta.categories.join(', '):'',$('content').value].filter(Boolean).join('\n\n')});
+const get=()=>({title:cleanSourceMarks($('title').value.trim()||'Truyện mẫu'),author:cleanSourceMarks($('author').value.trim()),body:[storyMeta.description?'Giới thiệu truyện\n'+storyMeta.description:'',storyMeta.categories?.length?'Thể loại: '+storyMeta.categories.join(', '):'',$('content').value].filter(Boolean).join('\n\n')});
 async function imageBytes(url){
  if(!url)return null;
  let blob;
@@ -166,15 +172,15 @@ if(fmt==='docx'){
  if(downloaded.length)paragraphs.push(para('Độ dài: '+downloaded.length+' chương','normal',{alignment:docx.AlignmentType.CENTER}));
  if(storyMeta.description){
   paragraphs.push(para('Văn án','heading'));
-  for(const block of storyMeta.description.split(/\n{2,}/)){if(block.trim())paragraphs.push(para(block.trim().replace(/\n/g,' ')))}
+  for(const block of sourceParagraphs(storyMeta.description)){if(block.trim())paragraphs.push(para(block.trim()))}
  }
  for(let i=0;i<downloaded.length;i++){
   const chapter=downloaded[i];
   paragraphs.push(para(chapter.title,'heading'));
-  for(const block of (chapter.content||'[Không tải được nội dung]').split(/\n{2,}/)){if(block.trim())paragraphs.push(para(block.trim().replace(/\n/g,' ')))}
+  for(const block of sourceParagraphs(chapter.content||'[Không tải được nội dung]')){if(block.trim())paragraphs.push(para(block.trim()))}
   for(const im of inlineImages.filter(x=>x.chapter===i))paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,children:[new docx.ImageRun({data:im.bytes,transformation:{width:300,height:300},type:im.ext})]}));
  }
- if(!downloaded.length)for(const block of $('content').value.split(/\n{2,}/))if(block.trim())paragraphs.push(para(block.trim().replace(/\n/g,' ')));
+ if(!downloaded.length)for(const block of $('content').value.split(/\n{2,}/))if(block.trim())paragraphs.push(para(block.trim()));
  const doc=new docx.Document({
   styles:{default:{document:{run:{font:'Tahoma',size:22,color:'000000'},paragraph:{spacing:{after:160,line:360}}}},paragraphStyles:[
    {id:'StoryTitle',name:'Story Title',basedOn:'Normal',next:'Normal',run:{font:'Cambria',size:72,bold:true,color:'1F3864'},paragraph:{alignment:docx.AlignmentType.CENTER,spacing:{after:140}}},
