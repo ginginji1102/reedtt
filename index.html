@@ -155,6 +155,47 @@ html[data-theme="day"] body::before{
  background:url("https://raw.githubusercontent.com/ginginji1102/reedtt/main/novel-box-sky.jpg?v=sky-photo-2") center top / cover no-repeat;
  filter:invert(1) hue-rotate(180deg) saturate(.72) brightness(1.12);
 }
+
+/* Day contrast refinement: clearly separated white panels and readable controls */
+html[data-theme="day"]{background:#e8f5ff;color:#183a56}
+html[data-theme="day"] body{color:#183a56;background:#e8f5ff}
+html[data-theme="day"] body::before{filter:invert(1) hue-rotate(180deg) saturate(.65) brightness(1.19)}
+html[data-theme="day"] header{
+ background:linear-gradient(105deg,#3b88be,#2675ae 52%,#1e639c);
+ border-bottom:1px solid #18598c;box-shadow:0 4px 20px rgba(18,73,120,.24)
+}
+html[data-theme="day"] header b{color:#fff!important;text-shadow:0 2px 5px rgba(13,48,82,.45)}
+html[data-theme="day"] header img{filter:brightness(0) saturate(100%) invert(92%) sepia(24%) saturate(285%) hue-rotate(171deg) brightness(105%) contrast(100%) drop-shadow(0 1px 2px rgba(6,43,83,.35))}
+html[data-theme="day"] h1{color:#123d61;text-shadow:0 1px 2px rgba(255,255,255,.8)}
+html[data-theme="day"] h2{color:#174e79}
+html[data-theme="day"] .lead{color:#244f70;font-weight:550}
+html[data-theme="day"] label{color:#254b69;font-weight:650}
+html[data-theme="day"] .hint{color:#42617a}
+html[data-theme="day"] .card{
+ background:rgba(255,255,255,.985);
+ border:1.5px solid #9ec9e4;
+ box-shadow:0 12px 36px rgba(20,77,125,.23),0 2px 6px rgba(27,88,137,.12);
+ backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)
+}
+html[data-theme="day"] input,html[data-theme="day"] textarea,html[data-theme="day"] select{
+ background:#fff;color:#183a56;border:1.5px solid #86b6d6;
+ box-shadow:inset 0 1px 2px rgba(20,75,115,.04)
+}
+html[data-theme="day"] input::placeholder,html[data-theme="day"] textarea::placeholder{color:#607d94}
+html[data-theme="day"] input:focus,html[data-theme="day"] textarea:focus,html[data-theme="day"] select:focus{
+ border-color:#217bb9;box-shadow:0 0 0 3px rgba(44,132,191,.19)
+}
+html[data-theme="day"] .formats label{background:#f1f8fe;border:1.5px solid #8ebddd;color:#1c5077}
+html[data-theme="day"] .formats label:hover{background:#e2f2ff;border-color:#398cc5}
+html[data-theme="day"] button:not(.alt):not(.theme-switch button){
+ background:linear-gradient(110deg,#237fb9,#1b669f);color:white;
+ box-shadow:0 5px 15px rgba(27,101,159,.26)
+}
+html[data-theme="day"] button.alt{background:#dceffc;color:#154d76;border:1px solid #8ebddc}
+html[data-theme="day"] .status{background:#e5f3ff;color:#17466b;border:1px solid #b0d3eb}
+html[data-theme="day"] .theme-switch{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.55)}
+html[data-theme="day"] .theme-switch button{color:#fff}
+html[data-theme="day"] .theme-switch button[aria-pressed="true"]{background:#fff;color:#1e6396}
 </style></head>
 <body><header><img src="novel-box-logo.svg?v=original-eyes-3" alt="Novel Box" style="width:44px;height:44px;object-fit:contain;vertical-align:middle;margin-right:10px"><b>Novel Box</b><div class="theme-switch" role="group" aria-label="Chế độ giao diện"><button type="button" id="theme-day" aria-pressed="false">☀ Day</button><button type="button" id="theme-night" aria-pressed="true">☾ Night</button></div></header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Dán một link truyện · Tìm chương tự động · Xuất Word, EPUB</p>
 <section class="card"><h2>01 · Đường dẫn truyện</h2><label for="source">Nguồn truyện</label><select id="source"><option value="auto">Tự nhận diện theo link</option><option value="truyenfull.live">Truyenfull.live</option><option value="wikicv.org">Wikicv.org</option><option value="truyenmo.xyz">Truyenmo.xyz</option><option value="docln.net">Docln.net</option><option value="wattpad.com">Wattpad.com</option><option value="wordpress.com">WordPress.com</option></select><label for="url">Link trang truyện</label><input id="url" type="url" placeholder="https://trang-truyen.example/truyen/..."><p class="hint">Đọc chương công khai qua backend Render. Chỉ hỗ trợ các nguồn được cấu hình; không hỗ trợ chương khóa hoặc trả phí.</p><button type="button" class="alt" id="check">Thu thập nội dung truyện</button><div class="status" id="urlstatus" aria-live="polite"></div></section>
