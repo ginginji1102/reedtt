@@ -722,3 +722,98 @@ async def convert_docx_pdf(req: ConvertWordRequest):
         return Response(content=out.getvalue(),media_type="application/pdf",headers={"Content-Disposition":'attachment; filename="reedtt.pdf"'})
     except HTTPException:raise
     except Exception as exc:raise HTTPException(422,"Không thể chuyển Word thành PDF: "+str(exc)[:180])
+
+# Rendered-page extraction for JavaScript-driven, public story pages.
+_render_browser_lock = asyncio.Lock()
+_render_browser_ready = False
+
+async def _render_browser():
+    global _render_browser_ready
+    from playwright.async_api import async_playwright
+    async with _render_browser_lock:
+        if not _render_browser_ready:
+            import subprocess, sys
+            # Render's existing build command installs Python packages only.
+            # Install headless Chromium once into the service's writable cache.
+            result = await asyncio.to_thread(
+                subprocess.run, [sys.executable, "-m", "playwright", "install", "chromium"],
+                capture_output=True, text=True, timeout=180
+            )
+            if result.returncode:
+                raise HTTPException(503, "Không thể cài Chromium trên Render: " + result.stderr[-350:])
+            _render_browser_ready = True
+    return async_playwright()
+
+async def _render_page(url):
+    target = normalized_url(url, url)
+    if not target or not (urlparse(target).hostname or "").endswith("giatocvuongtai.com"):
+        raise HTTPException(400, "Chỉ hỗ trợ đường dẫn HTTPS của Gia Tộc Vượng Tài.")
+    try:
+        async with await _render_browser() as playwright:
+            browser = await playwright.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+            try:
+                context = await browser.new_context(viewport={"width": 1280, "height": 900}, locale="vi-VN")
+                page = await context.new_page()
+                await page.goto(target, wait_until="domcontentloaded", timeout=35000)
+                await page.wait_for_timeout(1800)
+                for _ in range(8):
+                    await page.evaluate("window.scrollBy(0, Math.max(650, window.innerHeight))")
+                    await page.wait_for_timeout(500)
+                data = await page.evaluate("""() => {
+                  const title = document.querySelector('h1')?.textContent?.trim() || document.querySelector("meta[property='og:title']")?.content || '';
+                  const links = [...document.querySelectorAll('a[href]')].map(a => ({
+                    title: (a.querySelector('strong,p')?.textContent || a.textContent || '').trim(),
+                    url: a.href
+                  })).filter(x => {try {
+                    const u=new URL(x.url);
+                    return u.pathname.replace(/\\/$/,'')==='/reader' && u.searchParams.has('storyId') && u.searchParams.has('chapter');
+                  } catch {return false;}});
+                  const body=document.querySelector('.reader-demo-body,.reader-content,.chapter-content,#chapter-content,[data-chapter-content]');
+                  const ps=body?[...body.querySelectorAll('.chapter-paragraph')]:[];
+                  const fallback=body&&!ps.length?[...body.querySelectorAll('p.reader-demo-para,p')]:[];
+                  const content=(ps.length?ps:fallback).map(p=>p.textContent.trim()).filter(Boolean).join('\\n\\n');
+                  return {title,links,content};
+                }""")
+                return data
+            finally:
+                await browser.close()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(502, "Playwright không thể đọc trang: " + str(exc)[:250]) from exc
+
+@app.post("/render-discover")
+async def render_discover(req: ReadRequest):
+    data = await _render_page(req.url)
+    story_id = __import__("urllib.parse", fromlist=["parse_qs"]).parse_qs(urlparse(req.url).query).get("storyId", [None])[0]
+    seen = set()
+    chapters = []
+    for item in data.get("links", []):
+        link = normalized_url(req.url, item.get("url", ""))
+        if not link or link in seen:
+            continue
+        if story_id and __import__("urllib.parse", fromlist=["parse_qs"]).parse_qs(urlparse(link).query).get("storyId", [None])[0] != story_id:
+            continue
+        seen.add(link)
+        chapters.append({"title":item.get("title") or f"Chương {len(chapters)+1}", "url":link})
+    if not chapters and "/reader" in urlparse(req.url).path and data.get("content"):
+        chapters.append({"title":data.get("title") or "Chương đã chọn", "url":req.url})
+    return {"title":data.get("title", ""), "author":"", "chapters":chapters, "count":len(chapters)}
+
+@app.post("/render-batch")
+async def render_batch(req: BatchRequest):
+    if req.chapters is None or len(req.chapters)>10:
+        raise HTTPException(400, "Mỗi đợt tối đa 10 chương.")
+    chapters=[]
+    for item in req.chapters:
+        url=normalized_url(req.url, item.get("url", ""))
+        if not url:
+            raise HTTPException(400, "URL chương không hợp lệ.")
+        try:
+            data=await _render_page(url)
+            content=data.get("content", "")
+            chapters.append({"title":item.get("title",""),"url":url,"content":content,"images":[],
+                             **({"error":"Trang không hiển thị văn bản có thể trích xuất; OCR ảnh chưa được bật."} if not content else {})})
+        except HTTPException as exc:
+            chapters.append({"title":item.get("title",""),"url":url,"content":"","images":[],"error":str(exc.detail)})
+    return {"chapters":chapters,"count":len(chapters)}
