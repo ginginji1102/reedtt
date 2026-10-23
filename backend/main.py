@@ -314,6 +314,17 @@ async def discover(req:ReadRequest):
                 description=re.sub(r" *\n *","\n",description)
                 description=re.sub(r"\n{3,}","\n\n",description).strip()
             else:description=""
+            if (urlparse(base).hostname or "").lower().endswith("wordpress.com"):
+                article=soup.select_one("div.entry-content,div.post-content,div.single-entry-content,.post-entry")
+                if article:
+                    lines=[]
+                    for block in article.select("p,h1,h2,h3,h4"):
+                        if block.find_parent(["nav","aside","footer"]) or block.find_parent(class_=re.compile("comment|widget|related|share",re.I)):continue
+                        label=block.get_text(" ",strip=True)
+                        if re.search(r"^(?:Chương|Chapter|Chap) +[0-9]+",label,re.I):break
+                        if block.select_one("a[href]") and re.search(r"^(?:Chương|Chapter|Chap) +[0-9]+",label,re.I):break
+                        if label and not block.find_parent(["p","h1","h2","h3","h4"]):lines.append(label)
+                    if lines:description="\n\n".join(lines)[:15000]
             description=description or meta("meta[name=description]") or meta("meta[property='og:description']")
             description=re.sub(r"\s*(?:Xem thêm|Thu gọn|Đọc thêm|Show more|Read more)\s*$","",description,flags=re.I).strip()
             cover_tag=soup.select_one(".book-cover img,.book img,.story-cover img,.cover img,.info img,meta[property='og:image'],meta[name='twitter:image']")
