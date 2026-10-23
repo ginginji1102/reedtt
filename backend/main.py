@@ -755,7 +755,7 @@ async def _render_browser():
 
 async def _render_page(url):
     target = normalized_url(url, url)
-    if not target or not (urlparse(target).hostname or "").endswith("giatocvuongtai.com"):
+    if not target or not (urlparse(target).hostname or "").endswith(("giatocvuongtai.com","luotnovel1.site")):
         raise HTTPException(400, "Chỉ hỗ trợ đường dẫn HTTPS của Gia Tộc Vượng Tài.")
     try:
         async with await _render_browser() as playwright:
@@ -775,7 +775,7 @@ async def _render_page(url):
                     url: a.href
                   })).filter(x => {try {
                     const u=new URL(x.url);
-                    return u.pathname.replace(/\\/$/,'')==='/reader' && u.searchParams.has('storyId') && u.searchParams.has('chapter');
+                    return (u.pathname.replace(/\\/$/,'')==='/reader' && u.searchParams.has('storyId') && u.searchParams.has('chapter')) || (u.hostname.endsWith('luotnovel1.site') && /(?:chuong|chapter|chap)[-_ /]?\\d+|\\/\\d+(?:\\/|$)/i.test(u.pathname));
                   } catch {return false;}});
                   const body=document.querySelector('.reader-demo-body,.reader-content,.chapter-content,#chapter-content,[data-chapter-content]');
                   const ps=body?[...body.querySelectorAll('.chapter-paragraph')]:[];
@@ -850,4 +850,12 @@ async def luotnovel_discover(url):
                 sub,_=await get_page(client,link)
                 collect(sub,link)
             except (HTTPException,httpx.HTTPError):pass
+    if not found:
+        try:
+            rendered=await _render_page(url)
+            for item in rendered.get("links",[]):
+                link=normalized_url(url,item.get("url",""))
+                if link:found[link]={"title":item.get("title") or "Chương "+str(len(found)+1),"url":link}
+        except HTTPException:
+            pass
     return {"title":title,"author":"","chapters":list(found.values()),"count":len(found)}
