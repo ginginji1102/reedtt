@@ -160,7 +160,6 @@ async function chapterImages(){
 }
 function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)}
 $('check').onclick=loadStory;
-$('show').onclick=()=>{const d=get();$('preview').style.display='block';$('preview').textContent=d.title+'\n'+(d.author?'Tác giả: '+d.author+'\n':'')+'\n'+d.body};
 $('download').onclick=async()=>{const d=get();const status=$('status');status.textContent='Đang tạo file...';try{if(!d.body.trim())throw Error('Hãy nhập nội dung trước.');const fmt=document.querySelector('input[name="format"]:checked').value;const name=(d.title.replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,55)||'truyen')+'.'+fmt;const cover=await coverBytes();const inlineImages=await chapterImages();
 if(fmt==='docx'){
  if(!window.docx)throw Error('Không tải được thư viện Word.');
