@@ -111,7 +111,7 @@ async def get_page(client, url):
 def chapter_links(soup,base,story_path):
     found={}
     host=(urlparse(base).hostname or "").lower()
-    selectors=".list-chapter a[href],#list-chapter a[href],.chapter-list a[href],.list-chapters a[href],ul.list-chapter a[href],a[href*='chuong-'],a[href*='chapter-']"
+    selectors=".list-chapter a[href],#list-chapter a[href],.chapter-list a[href],.list-chapters a[href],ul.list-chapter a[href],#chaptersList a[href],a[href*='chuong-'],a[href*='chapter-']"
     if host.endswith("wattpad.com"):
         selectors+=",a[href^='/'][href*='-'],a[href*='wattpad.com/']"
     elif host.endswith("inkitt.com"):
@@ -221,7 +221,7 @@ def chapter_body(soup, source_url=''):
     special=host.endswith(('wattpad.com','inkitt.com'))
     preferred=(('#story-text-container',) if host.endswith('inkitt.com') else ())+('[data-testid=story-part-content]','.story-part-content','.panel-reading','.reading-content','.chapter-text','.chapter-content')
     if host.endswith("navyteams.com"):
-        navy_selectors=("#chapter-content",".chapter-content",".chapter-reading",".chapter-body",".reading-content",".read-content",".content-chapter",".chapter-detail",".chapter-text",".novel-content",".prose","[class*='chapterContent']","[class*='chapter-content']","[id*='chapter-content']","[itemprop='articleBody']")
+        navy_selectors=("#novelContent",".reader-content .novel-text","#chapter-content",".chapter-content",".chapter-reading",".chapter-body",".reading-content",".read-content",".content-chapter",".chapter-detail",".chapter-text",".novel-content",".prose","[class*='chapterContent']","[class*='chapter-content']","[id*='chapter-content']","[itemprop='articleBody']")
         candidates=[soup.select_one(sel) for sel in navy_selectors]
         candidates=[node for node in candidates if node and len(node.get_text(" ",strip=True))>=100]
         chapter=max(candidates,key=lambda node:len(node.get_text(" ",strip=True)),default=None)
