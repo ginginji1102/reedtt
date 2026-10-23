@@ -320,10 +320,10 @@ async def discover(req:ReadRequest):
                     lines=[]
                     for block in article.select("p,h1,h2,h3,h4"):
                         if block.find_parent(["nav","aside","footer"]) or block.find_parent(class_=re.compile("comment|widget|related|share",re.I)):continue
-                        label=block.get_text(" ",strip=True)
-                        if re.search(r"^(?:Chương|Chapter|Chap) +[0-9]+",label,re.I):break
-                        if block.select_one("a[href]") and re.search(r"^(?:Chương|Chapter|Chap) +[0-9]+",label,re.I):break
-                        if label and not block.find_parent(["p","h1","h2","h3","h4"]):lines.append(label)
+                        block_text=block.get_text(" ",strip=True)
+                        if re.search(r"^(?:Chương|Chapter|Chap) +[0-9]+",block_text,re.I):break
+                        if block.select_one("a[href]") and re.search(r"^(?:Chương|Chapter|Chap) +[0-9]+",block_text,re.I):break
+                        if block_text and not block.find_parent(["p","h1","h2","h3","h4"]):lines.append(block_text)
                     if lines:description="\n\n".join(lines)[:15000]
             description=description or meta("meta[name=description]") or meta("meta[property='og:description']")
             description=re.sub(r"\s*(?:Xem thêm|Thu gọn|Đọc thêm|Show more|Read more)\s*$","",description,flags=re.I).strip()
