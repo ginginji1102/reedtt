@@ -130,13 +130,13 @@ function sourceParagraphs(text){
 }
 function bookParagraphs(d){
  const out=[];
- if(storyMeta.description){out.push({text:'Giới thiệu truyện',heading:true});for(const p of sourceParagraphs(storyMeta.description))if(p.trim())out.push({text:p.trim()})}
+ if(storyMeta.description){out.push({text:'Giới Thiệu',heading:true});for(const p of sourceParagraphs(storyMeta.description))if(p.trim())out.push({text:p.trim()})}
  if(storyMeta.categories?.length)out.push({text:'Thể loại: '+storyMeta.categories.join(', ')});
  if(downloaded.length){for(const chapter of downloaded){out.push({text:chapter.title,heading:true});for(const p of sourceParagraphs(chapter.content||'[Không tải được nội dung]'))if(p.trim())out.push({text:p.trim()})}}
  else for(const p of sourceParagraphs($('content').value))if(p.trim())out.push({text:p.trim()});
  return out;
 }
-const get=()=>({title:cleanSourceMarks($('title').value.trim()||'Truyện mẫu'),author:cleanSourceMarks($('author').value.trim()),body:[storyMeta.description?'Giới thiệu truyện\n'+storyMeta.description:'',storyMeta.categories?.length?'Thể loại: '+storyMeta.categories.join(', '):'',$('content').value].filter(Boolean).join('\n\n')});
+const get=()=>({title:cleanSourceMarks($('title').value.trim()||'Truyện mẫu'),author:cleanSourceMarks($('author').value.trim()),body:[storyMeta.description?'Giới Thiệu\n'+storyMeta.description:'',storyMeta.categories?.length?'Thể loại: '+storyMeta.categories.join(', '):'',$('content').value].filter(Boolean).join('\n\n')});
 async function imageBytes(url){
  if(!url)return null;
  let blob;
@@ -170,7 +170,7 @@ if(fmt==='docx'){
  if(storyMeta.categories?.length)paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,spacing:{after:80},children:[new docx.TextRun({text:'Thể loại: ',bold:true}),new docx.TextRun(storyMeta.categories.join(', '))]}));
  if(downloaded.length)paragraphs.push(para('Độ dài: '+downloaded.length+' chương','normal',{alignment:docx.AlignmentType.CENTER}));
  if(storyMeta.description){
-  paragraphs.push(para('Văn án','heading'));
+  paragraphs.push(para('Giới Thiệu','heading'));
   for(const block of sourceParagraphs(storyMeta.description)){if(block.trim())paragraphs.push(para(block.trim()))}
  }
  for(let i=0;i<downloaded.length;i++){
