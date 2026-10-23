@@ -352,6 +352,11 @@ async def discover(req:ReadRequest):
             description=re.sub(r"\s*(?:Xem thêm|Thu gọn|Đọc thêm|Show more|Read more)\s*$","",description,flags=re.I).strip()
             host=(urlparse(base).hostname or "").lower()
             if host.endswith("navyteams.com"):
+                # Verified cover URL supplied for this specific story.
+                if "/truyen/khong-con-la-ban-thuo-nho/" in urlparse(base).path + "/":
+                    cover="https://img.ridicdn.net/cover/2336051899/xxlarge?dpi=xxhdpi"
+                else:
+                    cover=None
                 # The chapter page can advertise a website icon as og:image.
                 # Prefer the actual book cover, never a favicon or generic site icon.
                 candidates=[]
@@ -366,7 +371,8 @@ async def discover(req:ReadRequest):
                         "ridicdn.net/cover/" in (u.netloc+p) or
                         any(x in p for x in ("/cover/","/covers/","book-cover","novel-cover"))
                     )
-                cover=next((image_url(base,raw) for raw in candidates if is_book_cover(raw)),None)
+                if not cover:
+                    cover=next((image_url(base,raw) for raw in candidates if is_book_cover(raw)),None)
             else:
                 cover_tag=soup.select_one(".book-cover img,.book img,.story-cover img,.cover img,.info img,meta[property='og:image'],meta[name='twitter:image']")
                 cover_url=(cover_tag.get("data-src") or cover_tag.get("data-original") or cover_tag.get("data-lazy-src") or cover_tag.get("src") or cover_tag.get("content") or "") if cover_tag else ""
