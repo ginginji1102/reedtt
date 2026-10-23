@@ -29,13 +29,13 @@ button.alt{background:#3a2d4c;box-shadow:none}button:hover{filter:brightness(1.1
 <script>
 const $=id=>document.getElementById(id);
 const supportedHosts=['truyenfull.live','wikicv.org','truyenmo.xyz','docln.net','wattpad.com','wordpress.com'];
-function cleanText(node){return (node?.innerText||node?.textContent||'').replace(/\\n{3,}/g,'\\n\\n').trim()}
+function cleanText(node){return (node?.innerText||node?.textContent||'').replace(/\n{3,}/g,'\n\n').trim()}
 function safeUrl(value){const u=new URL(value);if(!['https:','http:'].includes(u.protocol))throw Error('Chỉ hỗ trợ đường dẫn HTTP hoặc HTTPS.');return u}
 const API='https://reedtt-reader-api.onrender.com';
 let discovered=[];
 let downloaded=[];
 let storyMeta={};
-$('url').addEventListener('input',()=>{try{const host=new URL($('url').value).hostname.replace(/^www\\./,'');$('source').value=[...$('source').options].some(o=>o.value===host)?host:'auto'}catch{}});
+$('url').addEventListener('input',()=>{try{const host=new URL($('url').value).hostname.replace(/^www\./,'');$('source').value=[...$('source').options].some(o=>o.value===host)?host:'auto'}catch{}});
 async function api(path,body){
  const r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(120000)});
  const data=await r.json().catch(()=>({}));
@@ -101,7 +101,7 @@ async function loadChapters(){
     }
    }
    downloaded.push(...result);
-   $('content').value=downloaded.map(x=>x.title+'\\n\\n'+(x.content||'[Không tải được nội dung]')).join('\\n\\n\\n');
+   $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||'[Không tải được nội dung]')).join('\n\n\n');
    status.textContent='Đã xử lý '+downloaded.length+'/'+total+' chương'+(failures?' · '+failures+' chương cần tải lại':'');
   }
   const failed=downloaded.filter(x=>!x.content);
@@ -114,7 +114,7 @@ async function loadChapters(){
      for(const chapter of data.chapters||[]){const index=downloaded.findIndex(x=>x.url===chapter.url);if(index>=0&&chapter.content)downloaded[index]=chapter}
     }catch(e){/* Keep the downloaded chapters and continue. */}
    }
-   $('content').value=downloaded.map(x=>x.title+'\\n\\n'+(x.content||'[Không tải được nội dung]')).join('\\n\\n\\n');
+   $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||'[Không tải được nội dung]')).join('\n\n\n');
   }
   const missing=downloaded.filter(x=>!x.content).length;
   status.textContent='Hoàn thành '+(total-missing)+'/'+total+' chương.'+(missing?' Còn '+missing+' chương nguồn chưa trả nội dung; bấm Tải nội dung để thử lại.':' Sẵn sàng xuất file.');
@@ -124,13 +124,13 @@ $('fetchchapters').onclick=loadChapters;
 const escapeXml=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function bookParagraphs(d){
  const out=[];
- if(storyMeta.description){out.push({text:'Giới thiệu truyện',heading:true});for(const p of storyMeta.description.split(/\\n+/))if(p.trim())out.push({text:p.trim()})}
+ if(storyMeta.description){out.push({text:'Giới thiệu truyện',heading:true});for(const p of storyMeta.description.split(/\n+/))if(p.trim())out.push({text:p.trim()})}
  if(storyMeta.categories?.length)out.push({text:'Thể loại: '+storyMeta.categories.join(', ')});
- if(downloaded.length){for(const chapter of downloaded){out.push({text:chapter.title,heading:true});for(const p of (chapter.content||'[Không tải được nội dung]').split(/\\n+/))if(p.trim())out.push({text:p.trim()})}}
- else for(const p of $('content').value.split(/\\n+/))if(p.trim())out.push({text:p.trim()});
+ if(downloaded.length){for(const chapter of downloaded){out.push({text:chapter.title,heading:true});for(const p of (chapter.content||'[Không tải được nội dung]').split(/\n+/))if(p.trim())out.push({text:p.trim()})}}
+ else for(const p of $('content').value.split(/\n+/))if(p.trim())out.push({text:p.trim()});
  return out;
 }
-const get=()=>({title:$('title').value.trim()||'Truyện mẫu',author:$('author').value.trim(),body:[storyMeta.description?'Giới thiệu truyện\\n'+storyMeta.description:'',storyMeta.categories?.length?'Thể loại: '+storyMeta.categories.join(', '):'',$('content').value].filter(Boolean).join('\\n\\n')});
+const get=()=>({title:$('title').value.trim()||'Truyện mẫu',author:$('author').value.trim(),body:[storyMeta.description?'Giới thiệu truyện\n'+storyMeta.description:'',storyMeta.categories?.length?'Thể loại: '+storyMeta.categories.join(', '):'',$('content').value].filter(Boolean).join('\n\n')});
 async function coverBytes(){
  if(!$('images').checked||!storyMeta.cover)return null;
  let blob;
