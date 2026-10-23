@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Novel Box - Đọc chương trên trình duyệt",
+  "version": "1.0.0",
+  "description": "Cho phép Novel Box đọc các chương công khai trên Gia Tộc Vượng Tài từ trình duyệt của bạn.",
+  "permissions": [],
+  "host_permissions": [
+    "https://giatocvuongtai.com/*",
+    "https://*.giatocvuongtai.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://yuu110299.github.io/NovelBox/*"
+      ],
+      "js": [
+        "bridge.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}
