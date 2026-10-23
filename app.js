@@ -105,8 +105,10 @@ async function loadStory(){
   $('end').value=discovered.length||1;
   $('chapterinfo').textContent='Đã tìm thấy '+discovered.length+' chương. '+(data.truncated?'Danh sách có thể chưa đầy đủ. ':'')+'Chọn phạm vi rồi nhấn “Tải nội dung các chương đã chọn”.';
   status.textContent=discovered.length?'Đã tìm được '+discovered.length+' chương. Đang tự tải nội dung...':'Chưa tìm được link chương từ mục lục. Nguồn có thể chặn máy chủ hoặc sử dụng cấu trúc khác.';
-  if(discovered.length)await loadChapters();
- }catch(e){status.textContent='Lỗi tìm chương: '+e.message}
+  if(discovered.length){
+   try{await loadChapters()}catch(downloadError){$('status').textContent='Đã tìm '+discovered.length+' link chương, nhưng tải nội dung thất bại: '+(downloadError.message||downloadError);status.textContent='Đã tìm '+discovered.length+' link chương. Danh sách vẫn được giữ để thử tải lại.'}
+  }
+ }catch(e){status.textContent='Lỗi tìm danh sách chương: '+e.message}
  finally{btn.disabled=false}
 }
 let activeDownload=false;
@@ -124,13 +126,14 @@ async function loadChapters(){
  const total=end-start+1;
  let failures=0;
  try{
-  for(let from=start;from<=end;from+=10){
-   const to=Math.min(from+9,end),items=discovered.slice(from-1,to);
+  const chunkSize=new URL(url).hostname.endsWith('giatocvuongtai.com')?2:10;
+  for(let from=start;from<=end;from+=chunkSize){
+   const to=Math.min(from+chunkSize-1,end),items=discovered.slice(from-1,to);
    const cached=items.map(item=>previous.get(item.url));
    let result=cached.every(x=>x&&x.content)?cached:null;
    if(!result){
     let lastError;
-    for(let attempt=1;attempt<=5;attempt++){
+    for(let attempt=1;attempt<=(new URL(url).hostname.endsWith('giatocvuongtai.com')?2:5);attempt++){
      status.textContent='Đang thu thập chương '+from+'–'+to+' / '+end+' · '+downloaded.length+'/'+total+' chương'+(attempt>1?' · thử lại '+attempt+'/5':'');
      try{
       const data=(new URL(url).hostname.endsWith('giatocvuongtai.com'))
@@ -140,7 +143,7 @@ async function loadChapters(){
       result=data.chapters;break;
      }catch(e){
       lastError=e;
-      if(attempt<5)await sleep(Math.min(1500*Math.pow(2,attempt-1),12000));
+      if(attempt<(new URL(url).hostname.endsWith('giatocvuongtai.com')?2:5))await sleep(Math.min(1500*Math.pow(2,attempt-1),12000));
      }
     }
     if(!result){
