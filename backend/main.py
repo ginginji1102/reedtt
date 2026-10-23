@@ -117,52 +117,22 @@ def chapter_links(soup,base,story_path):
     elif host.endswith("inkitt.com"):
         selectors+=", .chapters-list a[href],a[href*='/chapters/'],a[href*='/chapter/']"
     if host.endswith("wordpress.com"):
-        # WordPress indexes link chapters by visible title; URL slugs are arbitrary.
-        article=soup.select_one(".entry-content,.post-content,.entry-content-wrapper,.post-body,.post-entry,.post,article .content,[itemprop='articleBody'],article")
+        # WebToEpub WordpressBaseParser: take ALL anchors in the article content,
+        # not just links prefixed "Chapter". This includes titled extras.
+        article=soup.select_one("div.entry-content,div.post-content,ul.wp-block-post-template,.wp-block-cover__inner-container,div.single-entry-content,.post-entry,[itemprop='articleBody']")
         if article:
-            chapter_label=re.compile(r"^(?:chương|chuong|chapter|chap)\s*[:.\-–]?\s*0*\d+\b",re.I)
-            extra_label=re.compile(r"(?:phiên ngoại|phien ngoai|ngoại truyện|ngoai truyen|extra|ngoại phiên)",re.I)
             for a in article.select("a[href]"):
-                if a.find_parent(["nav","aside","footer"]) or a.find_parent(class_=re.compile(r"comment|related|share|social|widget|pagination",re.I)):continue
+                if a.find_parent(["nav","aside","footer","form"]) or a.find_parent(class_=re.compile(r"comment|related|share|social|widget|pagination|post-meta|entry-meta",re.I)):continue
                 label=a.get_text(" ",strip=True)
-                if not (chapter_label.search(label) or extra_label.search(label)):continue
+                if not label:continue
                 href=normalized_url(base,a.get("href",""))
-                if not href or urlparse(href).path.rstrip("/")==story_path.rstrip("/"):continue
+                if not href:continue
+                target=urlparse(href)
+                if target.path.rstrip("/")==story_path.rstrip("/"):continue
+                if target.hostname!=(urlparse(base).hostname or "").lower():continue
+                # WordPress posts generally have date-prefixed permalinks.
+                if not re.match(r"^/\d{4}/\d{2}/\d{2}/[^/]+/?$",target.path):continue
                 found[href]={"title":label[:180],"url":href}
-        if article:
-            # Titles under the 'Phiên Ngoại' heading are chapter links even when
-            # the anchor text contains no chapter number or 'phiên ngoại' prefix.
-            in_extras=False
-            for node in article.select("h1,h2,h3,h4,h5,h6,a[href]"):
-                if node.name in ("h1","h2","h3","h4","h5","h6"):
-                    heading=node.get_text(" ",strip=True)
-                    if re.search(r"^(?:phiên ngoại|phien ngoai|ngoại truyện|ngoai truyen)\b",heading,re.I):
-                        in_extras=True
-                    elif in_extras:
-                        in_extras=False
-                    continue
-                if not in_extras:continue
-                label=node.get_text(" ",strip=True)
-                href=normalized_url(base,node.get("href",""))
-                if label and href and urlparse(href).path.rstrip("/")!=story_path.rstrip("/"):
-                    found[href]={"title":"Phiên ngoại: "+label[:155],"url":href}
-            # Fallback for headings represented by styled paragraphs in older themes.
-            for node in article.select("a[href]"):
-                href=normalized_url(base,node.get("href",""))
-                if not href or href in found:continue
-                if re.search(r"/thien-huu-pn[0-9]+",urlparse(href).path,re.I):
-                    label=node.get_text(" ",strip=True)
-                    if label:found[href]={"title":"Phiên ngoại: "+label[:155],"url":href}
-        if not found:
-            # Some older WordPress themes wrap the article in nonstandard markup.
-            # Fallback still requires chapter-like anchor labels, not URL slugs.
-            for a in soup.select("a[href]"):
-                if a.find_parent(["nav","aside","footer"]) or a.find_parent(id=re.compile(r"comment|respond|sidebar",re.I)) or a.find_parent(class_=re.compile(r"comment|sidebar|related|widget|share|social",re.I)):continue
-                label=a.get_text(" ",strip=True)
-                if not re.search(r"^(?:chương|chuong|chapter|chap)\s*[:.\-–]?\s*0*\d+\b",label,re.I):continue
-                href=normalized_url(base,a.get("href",""))
-                if href and urlparse(href).path.rstrip("/")!=story_path.rstrip("/"):
-                    found[href]={"title":label[:180],"url":href}
         return list(found.values())
     for a in soup.select(selectors):
         href=normalized_url(base,a.get("href",""))
