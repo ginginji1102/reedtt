@@ -164,7 +164,7 @@ def chapter_body(soup, source_url=''):
     content=re.sub(r"\n{3,}","\n\n",content).strip()
     if special:
         ui=re.compile(r'^(?:[0-9]+(?:[.,][0-9]+)?[KMB]?|bởi .{1,70}|by .{1,70}|Chia sẻ|Gửi|Post to Your Profile|Share via Email|Report Story|Share|Send|Vote)$',re.I)
-        content='\\n\\n'.join(p for p in content.split('\\n\\n') if not ui.fullmatch(p.strip()))
+        content='\n\n'.join(p for p in content.split('\n\n') if not ui.fullmatch(p.strip()))
     return content[:300000],images[:50]
 
 @app.post("/discover")
