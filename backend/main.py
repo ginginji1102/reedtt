@@ -14,7 +14,7 @@ from pydantic import BaseModel
 app = FastAPI(title="Reedtt Reader API")
 app.add_middleware(CORSMiddleware, allow_origins=["https://yuu110299.github.io", "https://ginginji1102.github.io"], allow_methods=["GET","POST"], allow_headers=["*"])
 
-ALLOWED = ("truyenfull.live", "wikicv.org", "truyenmo.xyz", "docln.net", "wattpad.com", "wordpress.com", "navyteams.com", "inkitt.com")
+ALLOWED = ("truyenfull.live", "wattpad.com", "wordpress.com", "navyteams.com", "inkitt.com")
 SELECTORS = ("#chapter-content", ".chapter-content", ".reading-content", ".entry-content", ".chapter-c", "article", "[itemprop=articleBody]")
 class ReadRequest(BaseModel):
     url: str
