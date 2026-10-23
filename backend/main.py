@@ -92,10 +92,13 @@ async def public_image_host(host):
 
 async def get_page(client, url):
     r=await client.get(url)
-    if r.status_code in (301,302,303,307,308):
-        target=normalized_url(url,r.headers.get("location",""))
-        if not target: raise HTTPException(400,"Chuyển hướng tới nguồn không được hỗ trợ.")
+    for _ in range(4):
+        if r.status_code not in (301,302,303,307,308):break
+        target=normalized_url(str(r.url),r.headers.get("location",""))
+        if not target:raise HTTPException(400,"Chuyển hướng tới nguồn không được hỗ trợ.")
         r=await client.get(target)
+    if r.status_code in (401,403,429) and (urlparse(url).hostname or "").endswith("inkitt.com"):
+        raise HTTPException(502,"Inkitt từ chối yêu cầu từ máy chủ (HTTP "+str(r.status_code)+"). Không thể tải chương công khai qua Render; không phải lỗi tìm mục lục.")
     r.raise_for_status()
     if "html" not in r.headers.get("content-type","").lower() or len(r.content)>3_000_000:
         raise HTTPException(400,"Trang không phải HTML hợp lệ hoặc quá lớn.")
@@ -277,7 +280,7 @@ async def discover(req:ReadRequest):
     if u.scheme!="https" or not u.hostname or not allowed(u.hostname.lower()) or u.port not in (None,443):
         raise HTTPException(400,"Nguồn chưa được hỗ trợ hoặc URL không hợp lệ.")
     try:
-        async with httpx.AsyncClient(timeout=20,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (compatible; ReedttReader/1.1)"}) as client:
+        async with httpx.AsyncClient(timeout=20,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"en-US,en;q=0.9"}) as client:
             soup,base=await get_page(client,req.url)
             title=(soup.select_one("meta[property='og:title']") or {}).get("content","") or (soup.h1.get_text(" ",strip=True) if soup.h1 else "")
             author=soup.select_one("span#storyAuthor,[itemprop='author'],.author")
@@ -356,7 +359,7 @@ async def batch(req:BatchRequest):
     if not chosen:raise HTTPException(404,"Không tìm thấy chương.")
     is_wattpad=(urlparse(req.url).hostname or '').lower().endswith('wattpad.com')
     semaphore=asyncio.Semaphore(5)
-    async with httpx.AsyncClient(timeout=20,follow_redirects=False,limits=httpx.Limits(max_connections=6),headers={"User-Agent":"Mozilla/5.0 (compatible; ReedttReader/1.1)"}) as client:
+    async with httpx.AsyncClient(timeout=20,follow_redirects=False,limits=httpx.Limits(max_connections=6),headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"en-US,en;q=0.9"}) as client:
         archive=await wattpad_story_archive(client,req.url) if is_wattpad else None
         async def fetch_one(item):
             async with semaphore:
