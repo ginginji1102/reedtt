@@ -163,23 +163,21 @@ def chapter_body(soup, source_url=''):
     content=re.sub(r" *\n *","\n",content)
     content=re.sub(r"\n{3,}","\n\n",content).strip()
     if special:
-        # Discard recommendation and comments sections rather than just their headings.
-        section_names=re.compile(r'^(?:Các truyện được quảng cáo|Bạn cũng sẽ thích|Truyện đề xuất|Truyện liên quan|Đề xuất cho bạn|Promoted Stories|Promoted|You\s+May Also Like|You Might Also Like|Recommended(?: Stories)?|Recommendations|More Stories|Comments?|Bình luận|Phản hồi)(?:\s*[:：])?$',re.I)
+        # Only accept story paragraphs. Never harvest recommendation cards or comments.
         ui=re.compile(r'^(?:[0-9]+(?:[.,][0-9]+)?[KMB]?|[0-9]+\s*(?:comments?|bình luận|votes?|lượt đọc)|bởi .{1,70}|by .{1,70}|Chia sẻ|Gửi|Post to Your Profile|Share via Email|Report Story|Share|Send|Vote|Reply|Trả lời|Like|Thích|Xem thêm|Đọc thêm|[?？]{1,4})$',re.I)
+        boundary=re.compile(r'^(?:Các truyện được quảng cáo|Bạn cũng sẽ thích|Truyện đề xuất|Truyện liên quan|Đề xuất cho bạn|Promoted Stories|Promoted|You\s+May Also Like|You Might Also Like|Recommended(?: Stories)?|Recommendations|More Stories|Comments?|Bình luận|Phản hồi)(?:\s*[:：])?$',re.I)
         kept=[]
         stop=False
         for paragraph in content.split('\n\n'):
-            paragraph=paragraph.strip()
-            if not paragraph:continue
-            cleaned=[]
+            lines=[]
             for line in paragraph.split('\n'):
                 line=line.strip()
-                if section_names.fullmatch(line):
+                if boundary.fullmatch(line):
                     stop=True
                     break
-                if not ui.fullmatch(line):cleaned.append(line)
+                if line and not ui.fullmatch(line):lines.append(line)
             if stop:break
-            if cleaned:kept.append('\n'.join(cleaned))
+            if lines:kept.append('\n'.join(lines))
         content='\n\n'.join(kept)
         if not content:return '',[]
     return content[:300000],images[:50]
