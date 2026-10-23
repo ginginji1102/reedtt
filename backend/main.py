@@ -147,11 +147,19 @@ async def discover(req:ReadRequest):
             if desc_node:
                 for junk in desc_node.select("button,script,style,.read-more,.show-more,.more-btn,.expand,.collapse,[role=button],a"):
                     junk.decompose()
-            description=desc_node.get_text(" ",strip=True) if desc_node else ""
+            if desc_node:
+                for br in desc_node.select("br"):br.replace_with("\n")
+                description=desc_node.get_text("\n",strip=True)
+                description=re.sub(r"\n{3,}","\n\n",description)
+            else:description=""
             description=description or meta("meta[name=description]") or meta("meta[property='og:description']")
             description=re.sub(r"\\s*(?:Xem thêm|Thu gọn|Đọc thêm|Show more|Read more)\\s*$","",description,flags=re.I).strip()
-            cover_tag=soup.select_one(".book img,.book-cover img,.info img,.book-info img,.story-cover img,.cover img,meta[property='og:image']")
-            cover=normalized_url(base,(cover_tag.get("data-src") or cover_tag.get("src") or cover_tag.get("content") or "")) if cover_tag else None
+            cover_tag=soup.select_one(".book-cover img,.book img,.story-cover img,.cover img,.info img,meta[property='og:image'],meta[name='twitter:image']")
+            cover_url=(cover_tag.get("data-src") or cover_tag.get("data-original") or cover_tag.get("data-lazy-src") or cover_tag.get("src") or cover_tag.get("content") or "") if cover_tag else ""
+            cover=normalized_url(base,cover_url)
+            if not cover:
+                raw=meta("meta[property='og:image']") or meta("meta[name='twitter:image']")
+                cover=normalized_url(base,raw) if raw else None
             categories=[a.get_text(" ",strip=True) for a in soup.select(".tag a,.tags a,.genres a,.genre a,.book-tags a,[itemprop=genre] a") if a.get_text(" ",strip=True)]
             if not categories:
                 raw=label("[itemprop=genre],.genres,.genre,.book-tags")
