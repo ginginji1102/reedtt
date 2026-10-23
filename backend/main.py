@@ -225,7 +225,7 @@ def page_links(soup,base,story_path):
 def chapter_body(soup, source_url=''):
     host=(urlparse(source_url).hostname or '').lower()
     special=host.endswith(('wattpad.com','inkitt.com'))
-    preferred=(('#story-text-container',) if host.endswith('inkitt.com') else ())+('[data-testid=story-part-content]','.story-part-content','.panel-reading','.reading-content','.chapter-text','.chapter-content')
+    preferred=(('.story-page-text','#story-text-container') if host.endswith('inkitt.com') else ())+('[data-testid=story-part-content]','.story-part-content','.panel-reading','.reading-content','.chapter-text','.chapter-content')
     if host.endswith("navyteams.com"):
         # Read only the actual visible novel body; avoid generic page containers.
         chapter=soup.select_one("#novelContent")
@@ -285,11 +285,60 @@ def chapter_body(soup, source_url=''):
         if not content:return '',[]
     return content[:300000],images[:50]
 
+async def inkitt_info(client, story_url):
+    """Use Inkitt's public story metadata endpoint, as lightnovel-crawler does."""
+    match=re.search(r"/stories/(\\d+)",urlparse(story_url).path)
+    if not match:
+        return None
+    story_id=match.group(1)
+    api_url=f"https://www.inkitt.com/api/stories/{story_id}"
+    try:
+        response=await client.get(api_url,headers={"Accept":"application/json","Referer":story_url})
+        if response.status_code in (401,403,429):
+            raise HTTPException(502,f"Inkitt API từ chối truy cập (HTTP {response.status_code}).")
+        response.raise_for_status()
+        data=response.json()
+    except httpx.HTTPError as exc:
+        raise HTTPException(502,f"Không tải được dữ liệu truyện từ Inkitt API: {type(exc).__name__}") from exc
+    except ValueError as exc:
+        raise HTTPException(502,"Inkitt API không trả về JSON hợp lệ.") from exc
+    if not isinstance(data,dict) or not isinstance(data.get("chapters"),list):
+        raise HTTPException(502,"Inkitt API không có danh sách chương công khai.")
+    base=f"https://www.inkitt.com/stories/{story_id}"
+    chapters=[]
+    for entry in data["chapters"][:1000]:
+        if not isinstance(entry,dict):
+            continue
+        number=entry.get("chapter_number")
+        if not isinstance(number,int) and not (isinstance(number,str) and number.isdigit()):
+            continue
+        number=int(number)
+        if number<1:
+            continue
+        name=str(entry.get("name") or f"Chương {number}").strip()
+        chapters.append({"title":f"{number}. {name}"[:180],"url":f"{base}/chapters/{number}"})
+    author=data.get("user") or {}
+    cover=data.get("vertical_cover") or {}
+    return {
+        "title":str(data.get("title") or "Truyện Inkitt")[:200],
+        "author":str(author.get("name") or "")[:120] if isinstance(author,dict) else "",
+        "description":str(data.get("summary") or data.get("description") or "")[:15000],
+        "cover":image_url(base,cover.get("url","")) if isinstance(cover,dict) else None,
+        "categories":[],
+        "chapters":chapters,
+        "count":len(chapters),
+        "truncated":len(data["chapters"])>1000,
+    }
+
+
 @app.post("/discover")
 async def discover(req:ReadRequest):
     u=urlparse(req.url.strip())
     if u.scheme!="https" or not u.hostname or not allowed(u.hostname.lower()) or u.port not in (None,443):
         raise HTTPException(400,"Nguồn chưa được hỗ trợ hoặc URL không hợp lệ.")
+    if (u.hostname or "").lower().endswith("inkitt.com") and re.search(r"/stories/\\d+",u.path):
+        async with httpx.AsyncClient(timeout=20,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept-Language":"en-US,en;q=0.9"}) as client:
+            return await inkitt_info(client,req.url)
     try:
         async with httpx.AsyncClient(timeout=20,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"en-US,en;q=0.9"}) as client:
             soup,base=await get_page(client,req.url)
