@@ -145,24 +145,21 @@ async def discover(req:ReadRequest):
                 return t.get_text(" ",strip=True) if t else ""
             desc_node=soup.select_one(".desc-text,.book-desc,.story-description,.description,.desc,.intro,.summary,[itemprop=description]")
             if desc_node:
-                for junk in desc_node.select("button,script,style,.read-more,.show-more,.more-btn,.expand,.collapse,[role=button],a"):
-                    junk.decompose()
-            if desc_node:
                 # Keep source paragraph boundaries, explicit BR breaks, and inline sentence flow.
                 for junk in desc_node.select("button,script,style,.read-more,.show-more,.more-btn,.expand,.collapse,[role=button],a"):
                     junk.decompose()
-                for br in desc_node.select("br"):br.replace_with("\\n")
+                for br in desc_node.select("br"):br.replace_with("\n")
                 for tag in reversed(list(desc_node.select("p,div,section,article,li,blockquote,h1,h2,h3,h4"))):
-                    tag.insert_before("\\n\\n")
-                    tag.insert_after("\\n\\n")
+                    tag.insert_before("\n\n")
+                    tag.insert_after("\n\n")
                 description=desc_node.get_text("",strip=False)
-                description=description.replace("\\r","")
-                description=re.sub(r"[ \\t]+"," ",description)
-                description=re.sub(r" *\\n *","\\n",description)
-                description=re.sub(r"\\n{3,}","\\n\\n",description).strip()
+                description=description.replace("\r","")
+                description=re.sub(r"[ \t]+"," ",description)
+                description=re.sub(r" *\n *","\n",description)
+                description=re.sub(r"\n{3,}","\n\n",description).strip()
             else:description=""
             description=description or meta("meta[name=description]") or meta("meta[property='og:description']")
-            description=re.sub(r"\\s*(?:Xem thêm|Thu gọn|Đọc thêm|Show more|Read more)\\s*$","",description,flags=re.I).strip()
+            description=re.sub(r"\s*(?:Xem thêm|Thu gọn|Đọc thêm|Show more|Read more)\s*$","",description,flags=re.I).strip()
             cover_tag=soup.select_one(".book-cover img,.book img,.story-cover img,.cover img,.info img,meta[property='og:image'],meta[name='twitter:image']")
             cover_url=(cover_tag.get("data-src") or cover_tag.get("data-original") or cover_tag.get("data-lazy-src") or cover_tag.get("src") or cover_tag.get("content") or "") if cover_tag else ""
             cover=normalized_url(base,cover_url)
