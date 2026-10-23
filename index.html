@@ -123,11 +123,11 @@ async function loadChapters(){
 $('fetchchapters').onclick=loadChapters;
 const escapeXml=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function cleanSourceMarks(text){
- return String(text||'').replace(/(?:truyenfullvn|truyenfulllive|truyenfull|truyen full)/gi,'').replace(/[ \\t]{2,}/g,' ').replace(/ *\\n */g,'\\n').trim();
+ return String(text||'').replace(/(?:truyenfullvn|truyenfulllive|truyenfull|truyen full)/gi,'').replace(/[ \t]{2,}/g,' ').replace(/ *\n */g,'\n').trim();
 }
 function sourceParagraphs(text){
- const cleaned=cleanSourceMarks(text).replace(/\\r\\n?/g,'\\n');
- return cleaned.split(/\\n+/).map(x=>x.trim()).filter(Boolean);
+ const cleaned=cleanSourceMarks(text).replace(/\r\n?/g,'\n');
+ return cleaned.split(/\n+/).map(x=>x.trim()).filter(Boolean);
 }
 function bookParagraphs(d){
  const out=[];
