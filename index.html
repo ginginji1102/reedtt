@@ -63,23 +63,62 @@ async function loadStory(){
  }catch(e){status.textContent='Lỗi tìm chương: '+e.message}
  finally{btn.disabled=false}
 }
+let activeDownload=false;
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function loadChapters(){
+ if(activeDownload)return;
  const btn=$('fetchchapters'),status=$('status');
  const start=Number($('start').value),end=Number($('end').value);
  if(!discovered.length){status.textContent='Hãy tìm danh sách chương trước.';return}
- if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>discovered.length){status.textContent='Phạm vi chương không hợp lệ hoặc vượt quá số chương đã tìm được.';return}
- btn.disabled=true;downloaded=[];status.textContent='Đang chuẩn bị tải '+(end-start+1)+' chương...';
+ if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>discovered.length){status.textContent='Phạm vi chương không hợp lệ.';return}
+ activeDownload=true;btn.disabled=true;
+ const url=$('url').value.trim(),include_images=$('images').checked;
+ const previous=new Map(downloaded.map(c=>[c.url,c]));
+ downloaded=[];
+ const total=end-start+1;
+ let failures=0;
  try{
-  for(let from=start;from<=end;from+=20){
-   const to=Math.min(from+19,end);
-   status.textContent='Đang tải chương '+from+'–'+to+' / '+end+'... ('+downloaded.length+'/'+(end-start+1)+' chương đã xử lý)';
-   const data=await api('/batch',{url:$('url').value.trim(),start:from,end:to,chapters:discovered.slice(from-1,to),include_images:$('images').checked});
-   downloaded.push(...(data.chapters||[]));
+  for(let from=start;from<=end;from+=10){
+   const to=Math.min(from+9,end),items=discovered.slice(from-1,to);
+   const cached=items.map(item=>previous.get(item.url));
+   let result=cached.every(x=>x&&x.content)?cached:null;
+   if(!result){
+    let lastError;
+    for(let attempt=1;attempt<=5;attempt++){
+     status.textContent='Đang thu thập chương '+from+'–'+to+' / '+end+' · '+downloaded.length+'/'+total+' chương'+(attempt>1?' · thử lại '+attempt+'/5':'');
+     try{
+      const data=await api('/batch',{url,start:from,end:to,chapters:items,include_images});
+      if(!Array.isArray(data.chapters)||data.chapters.length!==items.length)throw Error('Phản hồi chưa đầy đủ');
+      result=data.chapters;break;
+     }catch(e){
+      lastError=e;
+      if(attempt<5)await sleep(Math.min(1500*Math.pow(2,attempt-1),12000));
+     }
+    }
+    if(!result){
+     failures+=items.length;
+     result=items.map(item=>({title:item.title,url:item.url,content:'',images:[],error:lastError?.message||'Không tải được'}));
+    }
+   }
+   downloaded.push(...result);
+   $('content').value=downloaded.map(x=>x.title+'\\n\\n'+(x.content||'[Không tải được nội dung]')).join('\\n\\n\\n');
+   status.textContent='Đã xử lý '+downloaded.length+'/'+total+' chương'+(failures?' · '+failures+' chương cần tải lại':'');
+  }
+  const failed=downloaded.filter(x=>!x.content);
+  if(failed.length){
+   status.textContent='Đã quét '+total+' chương; đang thử tải lại '+failed.length+' chương bị lỗi...';
+   for(let i=0;i<failed.length;i+=5){
+    const items=failed.slice(i,i+5);
+    try{
+     const data=await api('/batch',{url,chapters:items,include_images});
+     for(const chapter of data.chapters||[]){const index=downloaded.findIndex(x=>x.url===chapter.url);if(index>=0&&chapter.content)downloaded[index]=chapter}
+    }catch(e){/* Keep the downloaded chapters and continue. */}
+   }
    $('content').value=downloaded.map(x=>x.title+'\\n\\n'+(x.content||'[Không tải được nội dung]')).join('\\n\\n\\n');
   }
-  status.textContent='Đã xử lý '+downloaded.length+' chương, '+downloaded.filter(x=>x.content).length+' chương có nội dung. Chọn Word / EPUB / PDF rồi bấm Tạo file.';
- }catch(e){status.textContent='Đã xử lý '+downloaded.length+' chương trước khi gián đoạn: '+e.message+'. Bạn có thể xuất phần đã tải.'}
- finally{btn.disabled=false}
+  const missing=downloaded.filter(x=>!x.content).length;
+  status.textContent='Hoàn thành '+(total-missing)+'/'+total+' chương.'+(missing?' Còn '+missing+' chương nguồn chưa trả nội dung; bấm Tải nội dung để thử lại.':' Sẵn sàng xuất file.');
+ }finally{activeDownload=false;btn.disabled=false}
 }
 $('fetchchapters').onclick=loadChapters;
 const escapeXml=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
