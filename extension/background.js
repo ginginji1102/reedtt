@@ -2,11 +2,11 @@ const allowedHost=host=>host==='giatocvuongtai.com'||host.endsWith('.giatocvuong
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function readRenderedPage(){
  const heading=document.querySelector('h1')?.textContent?.trim()||document.querySelector("meta[property='og:title']")?.content||'';
- const links=[...document.querySelectorAll('a[href]')].map(a=>({url:a.href,title:(a.querySelector('strong,p')?.textContent||a.textContent||'').trim()})).filter(a=>{try{const u=new URL(a.url);return u.pathname.replace(/\\/$/,'')==='/reader'&&u.searchParams.has('storyId')&&u.searchParams.has('chapter')}catch{return false}});
+ const links=[...document.querySelectorAll('a[href]')].map(a=>({url:a.href,title:(a.querySelector('strong,p')?.textContent||a.textContent||'').trim()})).filter(a=>{try{const u=new URL(a.url);return u.pathname.replace(/\/$/,'')==='/reader'&&u.searchParams.has('storyId')&&u.searchParams.has('chapter')}catch{return false}});
  const body=document.querySelector('.reader-demo-body');
  const paras=body?[...body.querySelectorAll('.chapter-paragraph')].map(p=>p.textContent.trim()).filter(Boolean):[];
  const fallback=body&&!paras.length?[...body.querySelectorAll('p.reader-demo-para')].map(p=>p.textContent.trim()).filter(Boolean):[];
- return {title:heading,links,content:(paras.length?paras:fallback).join('\\n\\n'),ready:!!body};
+ return {title:heading,links,content:(paras.length?paras:fallback).join('\n\n'),ready:!!body};
 }
 async function readTab(url){
  const tab=await chrome.tabs.create({url,active:false});
