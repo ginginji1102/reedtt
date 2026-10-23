@@ -47,8 +47,11 @@ async function loadStory(){
   discovered=data.chapters||[];
   storyMeta={title:data.title||"",author:data.author||"",description:data.description||"",categories:data.categories||[],cover:data.cover||""};
   const meta=$("storymeta");meta.replaceChildren();
-  if(storyMeta.cover){const img=document.createElement("img");img.src=storyMeta.cover;img.alt="Ảnh bìa truyện";img.style.cssText="width:115px;max-height:180px;object-fit:contain;border-radius:9px;float:left;margin:0 18px 12px 0";img.referrerPolicy="no-referrer";meta.append(img)}
-  for(const [name,val] of [["Tên truyện",storyMeta.title],["Tác giả",storyMeta.author],["Thể loại",storyMeta.categories.join(", ")],["Mô tả",storyMeta.description]]){if(val){const p=document.createElement("p");const b=document.createElement("strong");b.textContent=name+": ";p.append(b,document.createTextNode(val));p.style.whiteSpace="pre-wrap";p.style.lineHeight="1.85";p.style.margin="12px 0 18px";meta.append(p)}}
+  const layout=document.createElement("div");layout.className="story-meta-layout";
+  const details=document.createElement("div");details.className="story-meta-details";
+  if(storyMeta.cover){const img=document.createElement("img");img.src=storyMeta.cover;img.alt="Ảnh bìa truyện";img.className="story-meta-cover";img.referrerPolicy="no-referrer";layout.append(img)}
+  for(const [name,val] of [["Tên truyện",storyMeta.title],["Tác giả",storyMeta.author],["Thể loại",storyMeta.categories.join(", ")],["Mô tả",storyMeta.description]]){if(val){const p=document.createElement("p");const b=document.createElement("strong");b.textContent=name+": ";p.append(b,document.createTextNode(val));details.append(p)}}
+  layout.append(details);meta.append(layout);
   downloaded=[];
   if(data.title)$('title').value=data.title;
   if(data.author)$('author').value=data.author;
