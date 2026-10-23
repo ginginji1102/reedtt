@@ -44,67 +44,38 @@ window.addEventListener('message',event=>{
  if(event.source!==window||event.origin!==location.origin||event.data?.novelboxBridge!=='response')return;
  const pending=bridgePending.get(event.data.id);if(!pending)return;
  bridgePending.delete(event.data.id);clearTimeout(pending.timer);
- event.data.ok?pending.resolve(event.data.html):pending.reject(Error(event.data.error||'Tiện ích không tải được trang.'));
+ event.data.ok?pending.resolve(event.data.data):pending.reject(Error(event.data.error||'Tiện ích không đọc được trang.'));
 });
-function extensionHtml(url){
+function renderedPage(url){
  return new Promise((resolve,reject)=>{
   const id='novelbox-'+crypto.randomUUID();
-  const timer=setTimeout(()=>{bridgePending.delete(id);reject(Error('Tiện ích không phản hồi trong 30 giây.'));},30000);
+  const timer=setTimeout(()=>{bridgePending.delete(id);reject(Error('Tiện ích không phản hồi. Hãy cài hoặc tải lại tiện ích Novel Box phiên bản 1.1.0.'));},45000);
   bridgePending.set(id,{resolve,reject,timer});
   window.postMessage({novelboxBridge:'request',id,url},location.origin);
  });
 }
-async function sourceHtml(url){
- try{
-  const response=await fetch(url,{credentials:'omit',redirect:'follow',signal:AbortSignal.timeout(20000)});
-  if(!response.ok)throw Error('Nguồn trả HTTP '+response.status+' ngay trong trình duyệt.');
-  return await response.text();
- }catch(error){
-  try{return await extensionHtml(url)}
-  catch(extError){
-   if(/không phản hồi trong 30 giây/.test(extError.message))throw Error('Trình duyệt chặn truy cập chéo (CORS). Hãy cài tiện ích Novel Box từ thư mục extension trên GitHub, sau đó tải lại trang.');
-   throw Error('Không thể tải trang qua trình duyệt hoặc tiện ích: '+extError.message);
-  }
- }
-}
 async function browserDiscover(url){
- const html=await sourceHtml(url),doc=new DOMParser().parseFromString(html,'text/html');
- const storyId=new URL(url).searchParams.get('storyId');
- const chapters=[],seen=new Set();
- for(const a of doc.querySelectorAll("a[href*='/reader/'][href*='chapter=']")){
-  const href=new URL(a.getAttribute('href'),url);
-  if(href.hostname!==new URL(url).hostname||!href.searchParams.get('chapter')||!href.searchParams.get('storyId'))continue;
+ const page=await renderedPage(url);
+ const chapters=[],seen=new Set(),storyId=new URL(url).searchParams.get('storyId');
+ for(const item of page.links||[]){
+  const href=new URL(item.url,url);
   if(storyId&&href.searchParams.get('storyId')!==storyId)continue;
-  const label=(a.querySelector('strong,p')?.textContent||a.textContent||'').trim();
-  if(!/^(?:chương|chuong|chapter)\s*\d+/i.test(label)||seen.has(href.href))continue;
-  seen.add(href.href);chapters.push({title:label,url:href.href});
+  if(seen.has(href.href))continue;
+  seen.add(href.href);
+  chapters.push({title:item.title||'Chương '+(chapters.length+1),url:href.href});
  }
  if(!chapters.length){
   const direct=new URL(url);
-  if(direct.pathname.replace(/\/$/,'')==='/reader'&&direct.searchParams.has('storyId')&&direct.searchParams.has('chapter')){
-   chapters.push({title:doc.querySelector('h1,h2,.chapter-title')?.textContent?.trim()||'Chương đã chọn',url:direct.href});
-  }else throw Error('Trình duyệt đã đọc HTML nhưng chưa thấy liên kết chương trong mã trang.');
+  if(direct.pathname.replace(/\/$/,'')==='/reader'&&direct.searchParams.has('chapter')){
+   chapters.push({title:page.title||'Chương đã chọn',url:direct.href});
+  }else throw Error('Đã mở trang nhưng không thấy liên kết chương. Hãy kiểm tra truyện có mục lục công khai hay không.');
  }
- return {title:doc.querySelector("meta[property='og:title']")?.content||doc.querySelector('h1')?.textContent?.trim()||'',chapters,count:chapters.length};
-}
-function extractReaderChapter(doc){
- const body=doc.querySelector('.reader-demo-body');
- if(body){
-  const paragraphs=[...body.querySelectorAll('.chapter-paragraph')].map(el=>(el.textContent||'').trim()).filter(Boolean);
-  if(paragraphs.length)return paragraphs.join('\n\n');
-  const fallback=[...body.querySelectorAll('p.reader-demo-para')].map(el=>(el.textContent||'').trim()).filter(Boolean);
-  if(fallback.length)return fallback.join('\n\n');
- }
- const node=doc.querySelector('.reader-content,.chapter-content,#chapter-content,article,[data-chapter-content],.prose,#reader-content,.reading-content');
- if(!node)return '';
- node.querySelectorAll('script,style,nav,button,.reader-demo-paragraph-comment-button').forEach(el=>el.remove());
- return cleanText(node);
+ return {title:page.title||'',chapters,count:chapters.length};
 }
 async function browserChapter(url){
- const doc=new DOMParser().parseFromString(await sourceHtml(url),'text/html');
- const content=extractReaderChapter(doc);
- if(!content)throw Error('Không thấy văn bản chương trong HTML tải về. Trang này có thể dựng .reader-demo-body bằng JavaScript sau khi mở; tiện ích hiện chỉ tải HTML gốc.');
- return content;
+ const page=await renderedPage(url);
+ if(!page.content?.trim())throw Error('Trang đã mở nhưng không có nội dung chương công khai trong .reader-demo-body.');
+ return page.content;
 }
 async function loadStory(){
  const status=$('urlstatus'),btn=$('check');
@@ -189,7 +160,7 @@ async function loadChapters(){
    status.textContent='Đã xử lý '+downloaded.length+'/'+total+' chương'+(failures?' · '+failures+' chương cần tải lại':'');
   }
   const failed=downloaded.filter(x=>!x.content);
-  if(failed.length && !failed.some(x=>/Inkitt.*(?:403|401|429)|Inkitt.*từ chối/i.test(x.error||''))){
+  if(failed.length && !new URL(url).hostname.endsWith('giatocvuongtai.com') && !failed.some(x=>/Inkitt.*(?:403|401|429)|Inkitt.*từ chối/i.test(x.error||''))){
    status.textContent='Đã quét '+total+' chương; đang thử tải lại '+failed.length+' chương bị lỗi...';
    for(let i=0;i<failed.length;i+=5){
     const items=failed.slice(i,i+5);
