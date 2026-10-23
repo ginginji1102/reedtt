@@ -156,7 +156,35 @@ function save(blob,name){const a=document.createElement('a');a.href=URL.createOb
 $('check').onclick=loadStory;
 $('show').onclick=()=>{const d=get();$('preview').style.display='block';$('preview').textContent=d.title+'\n'+(d.author?'Tác giả: '+d.author+'\n':'')+'\n'+d.body};
 $('download').onclick=async()=>{const d=get();const status=$('status');status.textContent='Đang tạo file...';try{if(!d.body.trim())throw Error('Hãy nhập nội dung trước.');const fmt=document.querySelector('input[name="format"]:checked').value;const name=(d.title.replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,55)||'truyen')+'.'+fmt;const cover=await coverBytes();const inlineImages=await chapterImages();
-if(fmt==='docx'){if(!window.docx)throw Error('Không tải được thư viện Word.');const paragraphs=[new docx.Paragraph({text:d.title,heading:docx.HeadingLevel.TITLE}),...(cover?[new docx.Paragraph({children:[new docx.ImageRun({data:cover.bytes,transformation:{width:240,height:340},type:cover.ext==='png'?'png':'jpg'})]})]:[]),new docx.Paragraph({text:d.author?'Tác giả: '+d.author:''}),...bookParagraphs(d).map(x=>new docx.Paragraph({text:x.text,...(x.heading?{heading:docx.HeadingLevel.HEADING_1}:{} )})),...inlineImages.map(im=>new docx.Paragraph({children:[new docx.ImageRun({data:im.bytes,transformation:{width:300,height:300},type:im.ext})]}))];const doc=new docx.Document({sections:[{children:paragraphs}]});save(await docx.Packer.toBlob(doc),name)}
+if(fmt==='docx'){
+ if(!window.docx)throw Error('Không tải được thư viện Word.');
+ const para=(text,kind='normal',extra={})=>new docx.Paragraph({text,style:kind==='title'?'StoryTitle':kind==='heading'?'Heading2':'Normal',...extra});
+ const paragraphs=[para(d.title,'title')];
+ if(cover)paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,spacing:{after:120},children:[new docx.ImageRun({data:cover.bytes,transformation:{width:270,height:400},type:cover.ext})]}));
+ if(d.author)paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,spacing:{after:80},children:[new docx.TextRun({text:'Tác giả: ',bold:true}),new docx.TextRun(d.author)]}));
+ if(storyMeta.categories?.length)paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,spacing:{after:80},children:[new docx.TextRun({text:'Thể loại: ',bold:true}),new docx.TextRun(storyMeta.categories.join(', '))]}));
+ if(downloaded.length)paragraphs.push(para('Độ dài: '+downloaded.length+' chương','normal',{alignment:docx.AlignmentType.CENTER}));
+ if(storyMeta.description){
+  paragraphs.push(para('Văn án','heading'));
+  for(const block of storyMeta.description.split(/\n{2,}/)){if(block.trim())paragraphs.push(para(block.trim().replace(/\n/g,' ')))}
+ }
+ for(let i=0;i<downloaded.length;i++){
+  const chapter=downloaded[i];
+  paragraphs.push(para(chapter.title,'heading'));
+  for(const block of (chapter.content||'[Không tải được nội dung]').split(/\n{2,}/)){if(block.trim())paragraphs.push(para(block.trim().replace(/\n/g,' ')))}
+  for(const im of inlineImages.filter(x=>x.chapter===i))paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,children:[new docx.ImageRun({data:im.bytes,transformation:{width:300,height:300},type:im.ext})]}));
+ }
+ if(!downloaded.length)for(const block of $('content').value.split(/\n{2,}/))if(block.trim())paragraphs.push(para(block.trim().replace(/\n/g,' ')));
+ const doc=new docx.Document({
+  styles:{default:{document:{run:{font:'Tahoma',size:22,color:'000000'},paragraph:{spacing:{after:160,line:360}}}},paragraphStyles:[
+   {id:'StoryTitle',name:'Story Title',basedOn:'Normal',next:'Normal',run:{font:'Cambria',size:72,bold:true,color:'1F3864'},paragraph:{alignment:docx.AlignmentType.CENTER,spacing:{after:140}}},
+   {id:'Heading1',name:'Heading 1',basedOn:'Normal',next:'Normal',run:{font:'Cambria',size:32,bold:true,color:'1F3864'},paragraph:{spacing:{before:240,after:0}}},
+   {id:'Heading2',name:'Heading 2',basedOn:'Normal',next:'Normal',run:{font:'Tahoma',size:22,bold:true,color:'000000'},paragraph:{spacing:{before:40,after:0,line:360}}}
+  ]},
+  sections:[{children:paragraphs}]
+ });
+ save(await docx.Packer.toBlob(doc),name)
+}
 else if(fmt==='epub'){if(!window.JSZip)throw Error('Không tải được thư viện EPUB.');const zip=new JSZip();zip.file('mimetype','application/epub+zip',{compression:'STORE'});zip.file('META-INF/container.xml','<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');if(cover){zip.file('OEBPS/cover.'+cover.ext,cover.bytes)}inlineImages.forEach((im,i)=>zip.file('OEBPS/image'+i+'.'+im.ext,im.bytes));const paragraphs=bookParagraphs(d);
 zip.file('OEBPS/chapter.xhtml','<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>'+escapeXml(d.title)+'</title></head><body><h1>'+escapeXml(d.title)+'</h1>'+(cover?'<div><img src="cover.'+cover.ext+'" alt="Ảnh bìa truyện" style="max-width:85%;height:auto"/></div>':'')+paragraphs.map(p=>p.heading?'<h2>'+escapeXml(p.text)+'</h2>':'<p>'+escapeXml(p.text)+'</p>').join('')+inlineImages.map((im,i)=>'<p><img src="image'+i+'.'+im.ext+'" alt="Minh họa chương" style="max-width:95%;height:auto"/></p>').join('')+'</body></html>');
 zip.file('OEBPS/nav.xhtml','<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>Mục lục</title></head><body><nav xmlns:epub="http://www.idpf.org/2007/ops" epub:type="toc"><ol><li><a href="chapter.xhtml">Nội dung</a></li></ol></nav></body></html>');zip.file('OEBPS/content.opf','<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="bookid">urn:uuid:reedtt-demo</dc:identifier><dc:title>'+escapeXml(d.title)+'</dc:title><dc:language>vi</dc:language><dc:creator>'+escapeXml(d.author)+'</dc:creator></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>' +(cover?'<item id="cover" href="cover.'+cover.ext+'" media-type="'+cover.mime+'" properties="cover-image"/>':'') +inlineImages.map((im,i)=>'<item id="img'+i+'" href="image'+i+'.'+im.ext+'" media-type="'+im.mime+'"/>').join('')+'<item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter"/></spine></package>');save(await zip.generateAsync({type:'blob',mimeType:'application/epub+zip'}),name)}
