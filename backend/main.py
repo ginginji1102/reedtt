@@ -287,7 +287,7 @@ def chapter_body(soup, source_url=''):
 
 async def inkitt_info(client, story_url):
     """Use Inkitt's public story metadata endpoint, as lightnovel-crawler does."""
-    match=re.search(r"/stories/(\\d+)",urlparse(story_url).path)
+    match=re.search(r"/stories/(\d+)",urlparse(story_url).path)
     if not match:
         return None
     story_id=match.group(1)
@@ -336,7 +336,7 @@ async def discover(req:ReadRequest):
     u=urlparse(req.url.strip())
     if u.scheme!="https" or not u.hostname or not allowed(u.hostname.lower()) or u.port not in (None,443):
         raise HTTPException(400,"Nguồn chưa được hỗ trợ hoặc URL không hợp lệ.")
-    if (u.hostname or "").lower().endswith("inkitt.com") and re.search(r"/stories/\\d+",u.path):
+    if (u.hostname or "").lower().endswith("inkitt.com") and re.search(r"/stories/\d+",u.path):
         async with httpx.AsyncClient(timeout=20,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept-Language":"en-US,en;q=0.9"}) as client:
             return await inkitt_info(client,req.url)
     try:
@@ -346,7 +346,7 @@ async def discover(req:ReadRequest):
                 keywords=soup.select_one('meta[name="keywords"]')
                 raw_keywords=(keywords.get("content") or "").strip() if keywords else ""
                 # Chapter pages may prefix the keywords with "Chương N, ".
-                title=re.sub(r"^Chương\\s*\\d+\\s*[,，:-]\\s*","",raw_keywords,flags=re.I).strip()
+                title=re.sub(r"^Chương\\s*\d+\\s*[,，:-]\\s*","",raw_keywords,flags=re.I).strip()
                 if not title or title.casefold()=="navy team":
                     raise HTTPException(422,"NavyTeams không có tên truyện hợp lệ trong meta keywords.")
             else:
