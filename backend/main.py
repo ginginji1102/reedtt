@@ -148,9 +148,18 @@ async def discover(req:ReadRequest):
                 for junk in desc_node.select("button,script,style,.read-more,.show-more,.more-btn,.expand,.collapse,[role=button],a"):
                     junk.decompose()
             if desc_node:
-                for br in desc_node.select("br"):br.replace_with("\n")
-                description=desc_node.get_text("\n",strip=True)
-                description=re.sub(r"\n{3,}","\n\n",description)
+                # Keep source paragraph boundaries, explicit BR breaks, and inline sentence flow.
+                for junk in desc_node.select("button,script,style,.read-more,.show-more,.more-btn,.expand,.collapse,[role=button],a"):
+                    junk.decompose()
+                for br in desc_node.select("br"):br.replace_with("\\n")
+                for tag in reversed(list(desc_node.select("p,div,section,article,li,blockquote,h1,h2,h3,h4"))):
+                    tag.insert_before("\\n\\n")
+                    tag.insert_after("\\n\\n")
+                description=desc_node.get_text("",strip=False)
+                description=description.replace("\\r","")
+                description=re.sub(r"[ \\t]+"," ",description)
+                description=re.sub(r" *\\n *","\\n",description)
+                description=re.sub(r"\\n{3,}","\\n\\n",description).strip()
             else:description=""
             description=description or meta("meta[name=description]") or meta("meta[property='og:description']")
             description=re.sub(r"\\s*(?:Xem thêm|Thu gọn|Đọc thêm|Show more|Read more)\\s*$","",description,flags=re.I).strip()
