@@ -30,6 +30,47 @@ let discovered=[];
 let downloaded=[];
 let storyMeta={};
 const manualInkittChapters=new Map();
+
+/* Bookmarklet executes only when the user clicks it on a visible Inkitt chapter.
+   Transfer text directly between browser tabs, without sending it to Render. */
+function inkittVisibleCapture(){
+ try{
+  if(!/(^|\.)inkitt\.com$/.test(location.hostname))return alert('Hãy mở chương trên Inkitt trước.');
+  const m=location.pathname.match(/\/stories\/(\d+)(?:\/chapters\/(\d+))?/);
+  if(!m||!m[2])return alert('Hãy mở trang của một chương Inkitt trước.');
+  const root=document.querySelector('.story-page-text,#story-text-container,article[data-content],article');
+  if(!root)return alert('Không tìm thấy nội dung chương đang hiển thị.');
+  const paragraphs=[...root.querySelectorAll('p')].filter(p=>p.getClientRects().length>0).map(p=>p.innerText.trim()).filter(Boolean);
+  const content=(paragraphs.length?paragraphs.join('\n\n'):root.innerText||'').trim();
+  if(content.length<50)return alert('Không tìm thấy đủ văn bản chương đang hiển thị.');
+  const title=(document.querySelector('.chapter-head-title,h1,h2')?.innerText||'Chương '+m[2]).trim().slice(0,180);
+  const target='https://yuu110299.github.io/NovelBox/';
+  const tab=window.open(target,'novelbox_inkitt_capture');
+  if(!tab)return alert('Trình duyệt chặn cửa sổ Novel Box. Hãy cho phép popup rồi thử lại.');
+  const token=String(Date.now())+'-'+Math.random().toString(36).slice(2);
+  const payload={type:'NOVELBOX_INKITT_CHAPTER',token,storyId:m[1],number:Number(m[2]),title,content};
+  let attempts=0;
+  function onAck(e){if(e.origin==='https://yuu110299.github.io'&&e.data?.type==='NOVELBOX_INKITT_ACK'&&e.data.token===token){clearInterval(timer);window.removeEventListener('message',onAck);alert('Đã chuyển chương '+m[2]+' sang Novel Box.');}}
+  window.addEventListener('message',onAck);
+  const timer=setInterval(()=>{if(++attempts>20){clearInterval(timer);window.removeEventListener('message',onAck);alert('Không kết nối được tab Novel Box. Hãy thử lại.');return;}tab.postMessage(payload,'https://yuu110299.github.io');},700);
+ }catch(err){alert('Lỗi thu thập Inkitt: '+err.message);}
+}
+const bookmarklet='javascript:('+inkittVisibleCapture.toString()+')()';
+$('inkitt-bookmarklet').setAttribute('href',bookmarklet);
+$('inkitt-bookmarklet').addEventListener('click',e=>{e.preventDefault();$('inkitt-manual-status').textContent='Hãy kéo nút này vào thanh dấu trang, rồi bấm dấu trang khi đang mở một chương Inkitt.'});
+window.addEventListener('message',event=>{
+ if(event.origin!=='https://www.inkitt.com'&&event.origin!=='https://inkitt.com')return;
+ const d=event.data;
+ if(!d||d.type!=='NOVELBOX_INKITT_CHAPTER'||!Number.isInteger(d.number)||d.number<1||d.number>10000||typeof d.content!=='string'||d.content.length<50||d.content.length>1000000||typeof d.storyId!=='string'||!/^\d+$/.test(d.storyId))return;
+ const existing=$('url').value.match(/inkitt\.com\/stories\/(\d+)/);
+ if(existing&&existing[1]!==d.storyId){$('inkitt-manual-status').textContent='Chương thuộc truyện Inkitt khác. Hãy xóa link truyện hiện tại trước khi thu thập.';return;}
+ if(!existing){$('url').value='https://www.inkitt.com/stories/'+d.storyId;$('url').dispatchEvent(new Event('input'));}
+ manualInkittChapters.set(d.number,{number:d.number,title:String(d.title||'Chương '+d.number).slice(0,180),url:'manual-inkitt:'+d.storyId+':'+d.number,content:d.content,images:[]});
+ refreshManualInkitt();
+ $('inkitt-chapter-number').value=d.number+1;
+ try{event.source?.postMessage({type:'NOVELBOX_INKITT_ACK',token:d.token},event.origin)}catch(e){}
+});
+
 function refreshManualInkitt(){
  const chapters=[...manualInkittChapters.values()].sort((a,b)=>a.number-b.number);
  downloaded=chapters.map(({number,...chapter})=>chapter);
