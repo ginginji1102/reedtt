@@ -289,12 +289,20 @@ async def discover(req:ReadRequest):
         async with httpx.AsyncClient(timeout=20,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"en-US,en;q=0.9"}) as client:
             soup,base=await get_page(client,req.url)
             if (urlparse(base).hostname or "").lower().endswith("navyteams.com"):
+                # The site-wide og:title is "Navy Team", not the story title.
+                # On story pages, prefer the actual story heading; on chapter
+                # pages the HTML <title> contains "Story - Chương N - Navy Team".
+                story_heading=soup.select_one("h1.story-title,h1.book-title,.story-detail h1,.story-info h1,.book-info h1,h1")
+                heading_text=story_heading.get_text(" ",strip=True) if story_heading else ""
                 raw_title=soup.title.get_text(" ",strip=True) if soup.title else ""
-                title=re.sub(r"\s*[-|–—]\s*Chương\s*\d+.*$","",raw_title,flags=re.I)
-                title=re.sub(r"\s*[-|–—]\s*Navy\s*Team\s*$","",title,flags=re.I).strip()
-                if not title or title.lower()=="navy team":
-                    heading=soup.select_one(".story-title,.book-title,h1")
-                    title=heading.get_text(" ",strip=True) if heading else ""
+                parsed_title=re.sub(r"\\s*[-|–—]\\s*Chương\\s*\\d+.*$","",raw_title,flags=re.I)
+                parsed_title=re.sub(r"\\s*[-|–—]\\s*Navy\\s*Team\\s*$","",parsed_title,flags=re.I).strip()
+                if heading_text and heading_text.casefold() not in ("navy team","chương 1"):
+                    title=heading_text
+                elif parsed_title and parsed_title.casefold()!="navy team":
+                    title=parsed_title
+                else:
+                    raise HTTPException(422,"Không xác định được tên truyện NavyTeams từ tiêu đề truyện.")
             else:
                 title=(soup.select_one("meta[property='og:title']") or {}).get("content","") or (soup.h1.get_text(" ",strip=True) if soup.h1 else "")
             author=soup.select_one("span#storyAuthor,[itemprop='author'],.author")
