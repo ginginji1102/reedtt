@@ -19,6 +19,7 @@ button.alt{background:#3a2d4c;box-shadow:none}button:hover{filter:brightness(1.1
 </style></head>
 <body><header>📚 <b>Reedtt</b> · Truyện Reader</header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Dán một link truyện · Tìm chương tự động · Xuất Word, EPUB, PDF</p>
 <section class="card"><h2>01 · Đường dẫn truyện</h2><label for="source">Nguồn truyện</label><select id="source"><option value="auto">Tự nhận diện theo link</option><option value="truyenfull.live">Truyenfull.live</option><option value="wikicv.org">Wikicv.org</option><option value="truyenmo.xyz">Truyenmo.xyz</option><option value="docln.net">Docln.net</option><option value="wattpad.com">Wattpad.com</option><option value="wordpress.com">WordPress.com</option></select><label for="url">Link trang truyện</label><input id="url" type="url" placeholder="https://trang-truyen.example/truyen/..."><p class="hint">Đọc chương công khai qua backend Render. Chỉ hỗ trợ các nguồn được cấu hình; không hỗ trợ chương khóa hoặc trả phí.</p><button type="button" class="alt" id="check">Thu thập nội dung truyện</button><div class="status" id="urlstatus" aria-live="polite"></div></section>
+<section class="card"><h2>Thông tin trang truyện</h2><div id="storymeta" class="hint">Ảnh bìa, mô tả, thể loại và tác giả sẽ được tự động lấy từ link truyện.</div></section>
 <section class="card"><h2>02 · Chọn định dạng</h2><div class="formats"><label><input type="radio" name="format" value="docx" checked>Word (.docx)</label><label><input type="radio" name="format" value="epub">EPUB (.epub)</label><label><input type="radio" name="format" value="pdf">PDF (.pdf)</label></div></section>
 <section class="card"><h2>03 · Thông tin truyện</h2><div class="cols"><div><label for="title">Tên truyện</label><input id="title" value="Truyện mẫu"></div><div><label for="author">Tác giả</label><input id="author" placeholder="Không bắt buộc"></div></div><div class="cols"><div><label for="start">Từ chương</label><input id="start" type="number" min="1" value="1"></div><div><label for="end">Đến chương</label><input id="end" type="number" min="1" value="2"></div></div><p class="hint" id="chapterinfo">Chỉ cần dán link trang truyện, hệ thống sẽ tự tìm chương. Có thể chọn phạm vi sau khi quét.</p><label><input id="images" type="checkbox" style="width:auto"> Tải kèm hình ảnh trong chương (nếu có)</label><button type="button" class="alt" id="fetchchapters">Tải nội dung các chương đã chọn</button></section>
 <section class="card"><h2>04 · Nội dung truyện</h2><textarea id="content" placeholder="Nội dung chương sau khi thu thập sẽ xuất hiện ở đây..."></textarea><p class="hint">Chỉ sử dụng nội dung bạn có quyền sao chép và xuất bản.</p><button type="button" class="alt" id="show">Xem trước</button> <button type="button" id="download">Tạo file ↓</button><div class="status" id="status" aria-live="polite"></div><div class="preview" id="preview"></div></section></main><footer>Reedtt · GitHub Pages + Render · Chỉ xử lý nội dung công khai mà bạn có quyền sử dụng</footer>
@@ -33,6 +34,7 @@ function safeUrl(value){const u=new URL(value);if(!['https:','http:'].includes(u
 const API='https://reedtt-reader-api.onrender.com';
 let discovered=[];
 let downloaded=[];
+let storyMeta={};
 $('url').addEventListener('input',()=>{try{const host=new URL($('url').value).hostname.replace(/^www\\./,'');$('source').value=[...$('source').options].some(o=>o.value===host)?host:'auto'}catch{}});
 async function api(path,body){
  const r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(120000)});
@@ -47,6 +49,10 @@ async function loadStory(){
  try{
   const data=await api('/discover',{url:u.href});
   discovered=data.chapters||[];
+  storyMeta={title:data.title||"",author:data.author||"",description:data.description||"",categories:data.categories||[],cover:data.cover||""};
+  const meta=$("storymeta");meta.replaceChildren();
+  if(storyMeta.cover){const img=document.createElement("img");img.src=storyMeta.cover;img.alt="Ảnh bìa truyện";img.style.cssText="width:115px;max-height:180px;object-fit:contain;border-radius:9px;float:left;margin:0 18px 12px 0";img.referrerPolicy="no-referrer";meta.append(img)}
+  for(const [name,val] of [["Tên truyện",storyMeta.title],["Tác giả",storyMeta.author],["Thể loại",storyMeta.categories.join(", ")],["Mô tả",storyMeta.description]]){if(val){const p=document.createElement("p");const b=document.createElement("strong");b.textContent=name+": ";p.append(b,document.createTextNode(val));meta.append(p)}}
   downloaded=[];
   if(data.title)$('title').value=data.title;
   if(data.author)$('author').value=data.author;
@@ -67,7 +73,7 @@ async function loadChapters(){
   for(let from=start;from<=end;from+=20){
    const to=Math.min(from+19,end);
    status.textContent='Đang tải chương '+from+'–'+to+' / '+end+'... ('+downloaded.length+'/'+(end-start+1)+' chương đã xử lý)';
-   const data=await api('/batch',{url:$('url').value.trim(),start:from,end:to,include_images:$('images').checked});
+   const data=await api('/batch',{url:$('url').value.trim(),start:from,end:to,chapters:discovered.slice(from-1,to),include_images:$('images').checked});
    downloaded.push(...(data.chapters||[]));
    $('content').value=downloaded.map(x=>x.title+'\\n\\n'+(x.content||'[Không tải được nội dung]')).join('\\n\\n\\n');
   }
@@ -77,7 +83,7 @@ async function loadChapters(){
 }
 $('fetchchapters').onclick=loadChapters;
 const escapeXml=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const get=()=>({title:$('title').value.trim()||'Truyện mẫu',author:$('author').value.trim(),body:$('content').value});
+const get=()=>({title:$('title').value.trim()||'Truyện mẫu',author:$('author').value.trim(),body:[storyMeta.description?'Giới thiệu truyện\\n'+storyMeta.description:'',storyMeta.categories?.length?'Thể loại: '+storyMeta.categories.join(', '):'',$('content').value].filter(Boolean).join('\\n\\n')});
 function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)}
 $('check').onclick=loadStory;
 $('show').onclick=()=>{const d=get();$('preview').style.display='block';$('preview').textContent=d.title+'\n'+(d.author?'Tác giả: '+d.author+'\n':'')+'\n'+d.body};
