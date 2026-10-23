@@ -1,9 +1,12 @@
-# Novel Box - tiện ích đọc chương
+# Novel Box – Tiện ích đọc trang đã hiển thị (v1.1.0)
 
-1. Tải thư mục `extension` về máy (hoặc tải ZIP của repository và giải nén).
-2. Trong Chrome/Cốc Cốc mở `chrome://extensions` (hoặc trang quản lý tiện ích tương ứng), bật **Developer mode**.
-3. Chọn **Load unpacked / Tải tiện ích đã giải nén**, trỏ đến thư mục `extension`.
-4. Mở lại https://yuu110299.github.io/NovelBox/ và dán link truyện Gia Tộc Vượng Tài.
-5. Tiện ích đọc HTML trực tiếp qua quyền truy cập host của trình duyệt; không vượt qua giới hạn truy cập của website, đăng nhập hay CAPTCHA. Nếu nguồn vẫn trả 403, tính năng không thể lấy nội dung.
+Trang GitHub Pages không thể tự đọc DOM của website khác vì chính sách bảo mật trình duyệt (CORS/same-origin). Tiện ích này mở tab nền của Gia Tộc Vượng Tài, đợi trang tải JavaScript và đọc văn bản công khai trong `.reader-demo-body .chapter-paragraph`.
 
-Tiện ích chỉ nhận yêu cầu từ trang Novel Box chính thức, chỉ tải HTML từ giatocvuongtai.com và không gửi HTML đến Render.
+## Cài đặt trên Chrome / Cốc Cốc
+1. Tải mã nguồn Novel Box ở https://github.com/yuu110299/NovelBox/archive/refs/heads/main.zip rồi giải nén.
+2. Mở `chrome://extensions` (Cốc Cốc: trang quản lý tiện ích), bật **Chế độ dành cho nhà phát triển**.
+3. Chọn **Tải tiện ích đã giải nén**, trỏ đến thư mục `extension`.
+4. Nếu đã cài phiên bản cũ, bấm **Tải lại** tiện ích (hoặc gỡ và cài lại).
+5. Tải lại https://yuu110299.github.io/NovelBox/ rồi dán link trang truyện.
+
+Tiện ích mở từng chương trong tab nền, lấy nội dung đang hiển thị và đóng tab. Không vượt qua đăng nhập, chương khóa, CAPTCHA hoặc giới hạn truy cập của website. Nếu danh sách chương được phân trang/ẩn sau thao tác, có thể cần bổ sung xử lý riêng. Mỗi chương có thể mất vài giây.
