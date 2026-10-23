@@ -153,7 +153,7 @@ def chapter_links(soup,base,story_path):
             for child in a.select("time,.date,.chapter-date,.chapter-time,.published,.updated,[class*='date'],[class*='time']"):
                 child.decompose()
             label=a.get_text(" ",strip=True) or label
-            label=re.sub(r"\\s*(?:[-–—|·•]\\s*)?(?:\\d{1,2}[/.-]\\d{1,2}[/.-]\\d{2,4}|\\d{4}[/.-]\\d{1,2}[/.-]\\d{1,2})(?:\\s+\\d{1,2}:\\d{2})?\\s*$","",label).strip()
+            label=re.sub(r"\s*(?:[-–—|·•]\s*)?(?:\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}|\d{4}[/.-]\d{1,2}[/.-]\d{1,2})(?:\s+\d{1,2}:\d{2})?\s*$","",label).strip()
         found[href]={"title":label[:180] or href.rsplit("/",1)[-1],"url":href}
     return list(found.values())
 
@@ -309,13 +309,13 @@ async def discover(req:ReadRequest):
                 for panel in soup.select("#storyInfo,.story-info,.story-information,.novel-info,.book-info,.story-detail,.story-details,.info-content,.info-list,.book-details,[id*='storyInfo']"):
                     for item in panel.select("li,div,p,span,dd,tr"):
                         line=item.get_text(" ",strip=True)
-                        match=re.match(r"^(?:Tác giả|Author)\\s*[:：]\\s*(.+)$",line,re.I)
+                        match=re.match(r"^(?:Tác giả|Author)\s*[:：]\s*(.+)$",line,re.I)
                         if match and len(line)<180:
                             author_name=match.group(1).strip()
                             break
                     if author_name:break
                 if not author_name:
-                    for node in soup.find_all(string=re.compile(r"^\\s*Tác giả\\s*[:：]?\\s*$",re.I)):
+                    for node in soup.find_all(string=re.compile(r"^\s*Tác giả\s*[:：]?\s*$",re.I)):
                         parent=node.parent
                         if not parent:continue
                         sibling=parent.find_next_sibling()
