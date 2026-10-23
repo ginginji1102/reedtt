@@ -39,10 +39,36 @@ async function api(path,body){
  if(!r.ok)throw Error(typeof data.detail==='string'?data.detail:'HTTP '+r.status);
  return data;
 }
+const bridgePending=new Map();
+window.addEventListener('message',event=>{
+ if(event.source!==window||event.origin!==location.origin||event.data?.novelboxBridge!=='response')return;
+ const pending=bridgePending.get(event.data.id);if(!pending)return;
+ bridgePending.delete(event.data.id);clearTimeout(pending.timer);
+ event.data.ok?pending.resolve(event.data.html):pending.reject(Error(event.data.error||'Tiện ích không tải được trang.'));
+});
+function extensionHtml(url){
+ return new Promise((resolve,reject)=>{
+  const id='novelbox-'+crypto.randomUUID();
+  const timer=setTimeout(()=>{bridgePending.delete(id);reject(Error('Tiện ích không phản hồi trong 30 giây.'));},30000);
+  bridgePending.set(id,{resolve,reject,timer});
+  window.postMessage({novelboxBridge:'request',id,url},location.origin);
+ });
+}
+async function sourceHtml(url){
+ try{
+  const response=await fetch(url,{credentials:'omit',redirect:'follow',signal:AbortSignal.timeout(20000)});
+  if(!response.ok)throw Error('Nguồn trả HTTP '+response.status+' ngay trong trình duyệt.');
+  return await response.text();
+ }catch(error){
+  try{return await extensionHtml(url)}
+  catch(extError){
+   if(/không phản hồi trong 30 giây/.test(extError.message))throw Error('Trình duyệt chặn truy cập chéo (CORS). Hãy cài tiện ích Novel Box từ thư mục extension trên GitHub, sau đó tải lại trang.');
+   throw Error('Không thể tải trang qua trình duyệt hoặc tiện ích: '+extError.message);
+  }
+ }
+}
 async function browserDiscover(url){
- const response=await fetch(url,{credentials:'omit',redirect:'follow',signal:AbortSignal.timeout(20000)});
- if(!response.ok)throw Error('Nguồn trả HTTP '+response.status+' ngay trong trình duyệt.');
- const html=await response.text(),doc=new DOMParser().parseFromString(html,'text/html');
+ const html=await sourceHtml(url),doc=new DOMParser().parseFromString(html,'text/html');
  const storyId=new URL(url).searchParams.get('storyId');
  const chapters=[],seen=new Set();
  for(const a of doc.querySelectorAll("a[href*='/reader/'][href*='chapter=']")){
@@ -62,9 +88,7 @@ async function browserDiscover(url){
  return {title:doc.querySelector("meta[property='og:title']")?.content||doc.querySelector('h1')?.textContent?.trim()||'',chapters,count:chapters.length};
 }
 async function browserChapter(url){
- const response=await fetch(url,{credentials:'omit',signal:AbortSignal.timeout(20000)});
- if(!response.ok)throw Error('HTTP '+response.status);
- const doc=new DOMParser().parseFromString(await response.text(),'text/html');
+ const doc=new DOMParser().parseFromString(await sourceHtml(url),'text/html');
  const node=doc.querySelector('.reader-content,.chapter-content,#chapter-content,article,[data-chapter-content],.prose,#reader-content,.reading-content');
  if(!node)throw Error('Trang chương không chứa văn bản trong HTML nhận được; có thể nội dung chỉ xuất hiện sau khi JavaScript chạy.');
  node.querySelectorAll('script,style,nav,button').forEach(x=>x.remove());
