@@ -39,12 +39,48 @@ async function api(path,body){
  if(!r.ok)throw Error(typeof data.detail==='string'?data.detail:'HTTP '+r.status);
  return data;
 }
+async function browserDiscover(url){
+ const response=await fetch(url,{credentials:'omit',redirect:'follow',signal:AbortSignal.timeout(20000)});
+ if(!response.ok)throw Error('Nguồn trả HTTP '+response.status+' ngay trong trình duyệt.');
+ const html=await response.text(),doc=new DOMParser().parseFromString(html,'text/html');
+ const storyId=new URL(url).searchParams.get('storyId');
+ const chapters=[],seen=new Set();
+ for(const a of doc.querySelectorAll("a[href*='/reader/'][href*='chapter=']")){
+  const href=new URL(a.getAttribute('href'),url);
+  if(href.hostname!==new URL(url).hostname||!href.searchParams.get('chapter')||!href.searchParams.get('storyId'))continue;
+  if(storyId&&href.searchParams.get('storyId')!==storyId)continue;
+  const label=(a.querySelector('strong,p')?.textContent||a.textContent||'').trim();
+  if(!/^(?:chương|chuong|chapter)\\s*\\d+/i.test(label)||seen.has(href.href))continue;
+  seen.add(href.href);chapters.push({title:label,url:href.href});
+ }
+ if(!chapters.length)throw Error('Trình duyệt đã đọc HTML nhưng chưa thấy liên kết chương trong mã trang.');
+ return {title:doc.querySelector("meta[property='og:title']")?.content||doc.querySelector('h1')?.textContent?.trim()||'',chapters,count:chapters.length};
+}
+async function browserChapter(url){
+ const response=await fetch(url,{credentials:'omit',signal:AbortSignal.timeout(20000)});
+ if(!response.ok)throw Error('HTTP '+response.status);
+ const doc=new DOMParser().parseFromString(await response.text(),'text/html');
+ const node=doc.querySelector('.reader-content,.chapter-content,#chapter-content,article,[data-chapter-content]');
+ if(!node)throw Error('Không tìm thấy nội dung chương trong HTML trình duyệt nhận được.');
+ node.querySelectorAll('script,style,nav,button').forEach(x=>x.remove());
+ const content=cleanText(node);
+ if(!content)throw Error('Nội dung chương trống.');
+ return content;
+}
 async function loadStory(){
  const status=$('urlstatus'),btn=$('check');
  let u;try{u=safeUrl($('url').value.trim());const src=$('source').value;if(src!=='auto'&&!(u.hostname===src||u.hostname.endsWith('.'+src)))throw Error('Nguồn đã chọn không khớp với link.')}catch(e){status.textContent=e.message||'Nhập URL HTTPS hợp lệ.';return}
  btn.disabled=true;status.textContent='Đang rà mục lục và các trang danh sách chương...';
  try{
-  const data=await api('/discover',{url:u.href});
+  let data;
+  if(u.hostname==='giatocvuongtai.com'||u.hostname.endsWith('.giatocvuongtai.com')){
+   status.textContent='Đang thử đọc trực tiếp bằng trình duyệt (không qua Render)...';
+   try{data=await browserDiscover(u.href)}
+   catch(e){
+    if(e instanceof TypeError||/Failed to fetch|NetworkError|Load failed/i.test(e.message||''))throw Error('Trình duyệt không được phép đọc trực tiếp nguồn này (có thể do CORS). Cần tiện ích trình duyệt có quyền truy cập trang nguồn. Không thể giải quyết bằng Render.');
+    throw e;
+   }
+  }else data=await api('/discover',{url:u.href});
   discovered=data.chapters||[];
   storyMeta={title:data.title||"",author:data.author||"",description:data.description||"",categories:data.categories||[],cover:data.cover||""};
   const meta=$("storymeta");meta.replaceChildren();
@@ -87,7 +123,9 @@ async function loadChapters(){
     for(let attempt=1;attempt<=5;attempt++){
      status.textContent='Đang thu thập chương '+from+'–'+to+' / '+end+' · '+downloaded.length+'/'+total+' chương'+(attempt>1?' · thử lại '+attempt+'/5':'');
      try{
-      const data=await api('/batch',{url,start:from,end:to,chapters:items,include_images});
+      const data=(new URL(url).hostname.endsWith('giatocvuongtai.com'))
+       ? {chapters:await Promise.all(items.map(async item=>{try{return {...item,content:await browserChapter(item.url),images:[]}}catch(e){return {...item,content:'',images:[],error:e.message}}}))}
+       : await api('/batch',{url,start:from,end:to,chapters:items,include_images});
       if(!Array.isArray(data.chapters)||data.chapters.length!==items.length)throw Error('Phản hồi chưa đầy đủ');
       result=data.chapters;break;
      }catch(e){
