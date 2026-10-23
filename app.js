@@ -102,7 +102,7 @@ async function loadChapters(){
    const blocked=result.some(x=>!x.content&&/Inkitt.*(?:403|401|429)|Inkitt.*từ chối/i.test(x.error||''));
    if(blocked){
     downloaded.push(...result);
-    $('content').value=downloaded.filter(x=>x.content).map(x=>x.title+'\\n\\n'+x.content).join('\\n\\n\\n');
+    $('content').value=downloaded.filter(x=>x.content).map(x=>x.title+'\n\n'+x.content).join('\n\n\n');
     status.textContent='Inkitt đang chặn truy cập từ máy chủ (HTTP 403/401/429). Đã dừng tải để tránh thử lại hàng trăm chương. Không thể lấy nội dung khi nguồn từ chối kết nối.';
     return;
    }
