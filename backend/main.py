@@ -65,7 +65,7 @@ async def read(req: ReadRequest):
         if re.search(r"(chương|chapter)\s*\d+",label,re.I):
             links.append({"title":label[:120],"url":a.get("href","")})
             if len(links)>=100:break
-    return {"title":title[:200],"author":author.get_text(" ",strip=True)[:120] if author else "","content":content[:500000],"chapters":links,"count":len(links)}
+    return {"title":title[:200],"author":author_name[:120],"content":content[:500000],"chapters":links,"count":len(links)}
 
 # Discover public chapter links from the story landing page and pagination.
 def normalized_url(base, href):
@@ -148,6 +148,12 @@ def chapter_links(soup,base,story_path):
             if nr or chapter_title:
                 label=" ".join(x.get_text(" ",strip=True) for x in (nr,chapter_title) if x)
         elif not re.search(r"(chương|chuong|chapter)\s*[-:]?\s*\d+|/(chuong|chapter)[-_]?\d+",label+" "+href,re.I):continue
+        if host.endswith("navyteams.com"):
+            # Chapter list entries may append publication dates in child elements.
+            for child in a.select("time,.date,.chapter-date,.chapter-time,.published,.updated,[class*='date'],[class*='time']"):
+                child.decompose()
+            label=a.get_text(" ",strip=True) or label
+            label=re.sub(r"\\s*(?:[-–—|·•]\\s*)?(?:\\d{1,2}[/.-]\\d{1,2}[/.-]\\d{2,4}|\\d{4}[/.-]\\d{1,2}[/.-]\\d{1,2})(?:\\s+\\d{1,2}:\\d{2})?\\s*$","",label).strip()
         found[href]={"title":label[:180] or href.rsplit("/",1)[-1],"url":href}
     return list(found.values())
 
@@ -297,6 +303,25 @@ async def discover(req:ReadRequest):
             else:
                 title=(soup.select_one("meta[property='og:title']") or {}).get("content","") or (soup.h1.get_text(" ",strip=True) if soup.h1 else "")
             author=soup.select_one("span#storyAuthor,[itemprop='author'],.author")
+            author_name=author.get_text(" ",strip=True) if author else ""
+            if (urlparse(base).hostname or "").lower().endswith("navyteams.com"):
+                # Read the story-information panel, not a generic site author label.
+                for panel in soup.select("#storyInfo,.story-info,.story-information,.novel-info,.book-info,.story-detail,.story-details,.info-content,.info-list,.book-details,[id*='storyInfo']"):
+                    for item in panel.select("li,div,p,span,dd,tr"):
+                        line=item.get_text(" ",strip=True)
+                        match=re.match(r"^(?:Tác giả|Author)\\s*[:：]\\s*(.+)$",line,re.I)
+                        if match and len(line)<180:
+                            author_name=match.group(1).strip()
+                            break
+                    if author_name:break
+                if not author_name:
+                    for node in soup.find_all(string=re.compile(r"^\\s*Tác giả\\s*[:：]?\\s*$",re.I)):
+                        parent=node.parent
+                        if not parent:continue
+                        sibling=parent.find_next_sibling()
+                        if sibling:
+                            candidate=sibling.get_text(" ",strip=True)
+                            if candidate and len(candidate)<120:author_name=candidate;break
             story_path=urlparse(base).path
             found={x["url"]:x for x in chapter_links(soup,base,story_path)}
             wattpad_data=await wattpad_story_metadata(client,base) if (urlparse(base).hostname or '').lower().endswith('wattpad.com') else None
