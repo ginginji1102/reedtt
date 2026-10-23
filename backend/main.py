@@ -162,8 +162,8 @@ def chapter_links(soup,base,story_path):
             label=heading.get_text(" ",strip=True) if heading else ""
             if not re.fullmatch(r"(?:chương|chuong|chapter)\s*\d+",label,re.I):continue
         elif host.endswith("luotnovel1.site"):
-            if target.hostname != host or not re.search(r"(?:chuong|chapter|chap)[-_ /]?\\d+|/\\d+(?:/|$)",target.path,re.I):
-                if not re.search(r"^(?:chương|chuong|chapter)\\s*\\d+",label,re.I):continue
+            if target.hostname != host or not re.search(r"(?:chuong|chapter|chap)[-_ /]?\d+|/\d+(?:/|$)",target.path,re.I):
+                if not re.search(r"^(?:chương|chuong|chapter)\s*\d+",label,re.I):continue
         elif not re.search(r"(chương|chuong|chapter)\s*[-:]?\s*\d+|/(chuong|chapter)[-_]?\d+",label+" "+href,re.I):continue
         if host.endswith("navyteams.com"):
             # Chapter list entries may append publication dates in child elements.
@@ -429,6 +429,8 @@ async def discover(req:ReadRequest):
     u=urlparse(req.url.strip())
     if u.scheme!="https" or not u.hostname or not allowed(u.hostname.lower()) or u.port not in (None,443):
         raise HTTPException(400,"Nguồn chưa được hỗ trợ hoặc URL không hợp lệ.")
+    if (u.hostname or "").lower().endswith("luotnovel1.site"):
+        return await luotnovel_discover(req.url)
     if (u.hostname or "").lower().endswith("inkitt.com") and re.search(r"/stories/\d+",u.path):
         async with httpx.AsyncClient(timeout=20,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept-Language":"en-US,en;q=0.9"}) as client:
             try:
@@ -824,3 +826,28 @@ async def render_batch(req: BatchRequest):
         except HTTPException as exc:
             chapters.append({"title":item.get("title",""),"url":url,"content":"","images":[],"error":str(exc.detail)})
     return {"chapters":chapters,"count":len(chapters)}
+
+async def luotnovel_discover(url):
+    from urllib.parse import parse_qs
+    found={}
+    async with httpx.AsyncClient(timeout=25,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0","Accept-Language":"vi-VN,vi;q=0.9"}) as client:
+        soup,base=await get_page(client,url)
+        title=(soup.select_one("meta[property='og:title']") or {}).get("content","") or (soup.h1.get_text(" ",strip=True) if soup.h1 else "")
+        story_path=urlparse(base).path
+        def collect(doc,page_url):
+            for a in doc.select("a[href]"):
+                link=normalized_url(page_url,a.get("href",""))
+                if not link or urlparse(link).path.rstrip("/")==story_path.rstrip("/"):continue
+                if (urlparse(link).hostname or "").lower()!=(urlparse(base).hostname or "").lower():continue
+                label=a.get_text(" ",strip=True)
+                path=urlparse(link).path
+                if not (re.search(r"(?:chuong|chapter|chap)[-_ /]?\d+|/\d+(?:/|$)",path,re.I) or re.search(r"(?:chương|chuong|chapter)\s*\d+",label,re.I)):continue
+                found[link]={"title":label[:180] or "Chương "+str(len(found)+1),"url":link}
+        collect(soup,base)
+        pages=page_links(soup,base,story_path)
+        for link in pages[:30]:
+            try:
+                sub,_=await get_page(client,link)
+                collect(sub,link)
+            except (HTTPException,httpx.HTTPError):pass
+    return {"title":title,"author":"","chapters":list(found.values()),"count":len(found)}
