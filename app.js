@@ -43,9 +43,9 @@ async function importEpub(file){
   const opf=parse(await zip.file(opfPath).async('string'));
   const meta=getLocal(opf,'metadata');
   const metadata=(name)=>meta?Array.from(meta.getElementsByTagName('*')).filter(e=>e.localName===name).map(e=>e.textContent.trim()).filter(Boolean):[];
-  const title=metadata('title')[0]||file.name.replace(/\\.epub$/i,'');
+  const title=metadata('title')[0]||file.name.replace(/\.epub$/i,'');
   const author=metadata('creator').join(', ');
-  const description=metadata('description').join('\\n\\n');
+  const description=metadata('description').join('\n\n');
   const subjects=metadata('subject');
   const manifest=getLocal(opf,'manifest'),spine=getLocal(opf,'spine');
   if(!manifest||!spine)throw Error('EPUB thiếu manifest hoặc spine.');
@@ -71,7 +71,7 @@ async function importEpub(file){
    const heading=body.querySelector('h1,h2,h3');
    const chapterTitle=(heading?.textContent||doc.title||'Chương '+(result.length+1)).trim().slice(0,180);
    const blocks=Array.from(body.querySelectorAll('p,blockquote,h2,h3,h4,li')).filter(e=>!e.parentElement?.closest('p,blockquote,li')).map(e=>e.textContent.trim()).filter(Boolean);
-   const content=(blocks.length?blocks.join('\\n\\n'):body.innerText||body.textContent||'').trim();
+   const content=(blocks.length?blocks.join('\n\n'):body.innerText||body.textContent||'').trim();
    if(content)result.push({title:chapterTitle,url:'epub://chapter/'+(result.length+1),content,images:[]});
   }
   if(!result.length)throw Error('Không tìm thấy chương có văn bản trong EPUB.');
@@ -80,7 +80,7 @@ async function importEpub(file){
   downloaded=result;
   $('title').value=title;$('author').value=author;$('start').value=1;$('end').value=result.length;
   $('chapterinfo').textContent='Đã nhập '+result.length+' phần nội dung từ EPUB. Có thể xuất Word hoặc EPUB ngay.';
-  $('content').value=result.map(x=>x.title+'\\n\\n'+x.content).join('\\n\\n\\n');
+  $('content').value=result.map(x=>x.title+'\n\n'+x.content).join('\n\n\n');
   const metaNode=$('storymeta');metaNode.replaceChildren();
   for(const [label,value] of [['Tên truyện',title],['Tác giả',author],['Thể loại',subjects.join(', ')],['Summary',description]]){
    if(!value)continue;
