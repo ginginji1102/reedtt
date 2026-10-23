@@ -22,6 +22,11 @@ const supportedHosts=['truyenfull.live','wattpad.com','wordpress.com','navyteams
 function cleanText(node){return (node?.innerText||node?.textContent||'').replace(/\n{3,}/g,'\n\n').trim()}
 function safeUrl(value){const u=new URL(value);if(!['https:','http:'].includes(u.protocol))throw Error('Chỉ hỗ trợ đường dẫn HTTP hoặc HTTPS.');return u}
 
+const inkittAlt=$('inkitt-alternative');
+function showInkittAlternative(){let isInkitt=false;try{isInkitt=new URL($('url').value.trim()).hostname.toLowerCase().endsWith('inkitt.com')}catch(e){}inkittAlt.style.display=isInkitt?'block':'none'}
+$('url').addEventListener('input',showInkittAlternative);
+showInkittAlternative();
+$('inkitt-copy-link').addEventListener('click',async()=>{try{const u=new URL($('url').value.trim());if(!u.hostname.toLowerCase().endsWith('inkitt.com'))throw Error('Hãy nhập link Inkitt trước.');await navigator.clipboard.writeText(u.href);$('inkitt-copy-status').textContent='Đã sao chép liên kết. Dán vào WP Downloader.'}catch(e){$('inkitt-copy-status').textContent='Không sao chép tự động được. Hãy chọn và sao chép link ở ô phía trên.'}});
 const API='https://novelbox-reader-api.onrender.com';
 let discovered=[];
 let downloaded=[];
