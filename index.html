@@ -17,15 +17,15 @@ button.alt{background:#3a2d4c;box-shadow:none}button:hover{filter:brightness(1.1
 .hint{font-size:13px;color:#b8accd;line-height:1.6}.status{margin-top:12px;padding:12px;border-radius:10px;background:#2c2040;color:#eadcff}
 @media(max-width:600px){main{margin:30px auto}.cols,.formats{grid-template-columns:1fr}.card{padding:20px}}
 </style></head>
-<body><header>📚 <b>Reedtt</b> · Truyện Reader</header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Dán một link truyện · Tìm chương tự động · Xuất Word, EPUB, PDF</p>
+<body><header>📚 <b>Reedtt</b> · Truyện Reader</header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Dán một link truyện · Tìm chương tự động · Xuất Word, EPUB</p>
 <section class="card"><h2>01 · Đường dẫn truyện</h2><label for="source">Nguồn truyện</label><select id="source"><option value="auto">Tự nhận diện theo link</option><option value="truyenfull.live">Truyenfull.live</option><option value="wikicv.org">Wikicv.org</option><option value="truyenmo.xyz">Truyenmo.xyz</option><option value="docln.net">Docln.net</option><option value="wattpad.com">Wattpad.com</option><option value="wordpress.com">WordPress.com</option></select><label for="url">Link trang truyện</label><input id="url" type="url" placeholder="https://trang-truyen.example/truyen/..."><p class="hint">Đọc chương công khai qua backend Render. Chỉ hỗ trợ các nguồn được cấu hình; không hỗ trợ chương khóa hoặc trả phí.</p><button type="button" class="alt" id="check">Thu thập nội dung truyện</button><div class="status" id="urlstatus" aria-live="polite"></div></section>
 <section class="card"><h2>Thông tin trang truyện</h2><div id="storymeta" class="hint">Ảnh bìa, mô tả, thể loại và tác giả sẽ được tự động lấy từ link truyện.</div></section>
-<section class="card"><h2>02 · Chọn định dạng</h2><div class="formats"><label><input type="radio" name="format" value="docx" checked>Word (.docx)</label><label><input type="radio" name="format" value="epub">EPUB (.epub)</label><label><input type="radio" name="format" value="pdf">PDF (.pdf)</label></div></section>
+<section class="card"><h2>02 · Chọn định dạng</h2><div class="formats"><label><input type="radio" name="format" value="docx" checked>Word (.docx)</label><label><input type="radio" name="format" value="epub">EPUB (.epub)</label></div></section>
 <section class="card"><h2>03 · Thông tin truyện</h2><div class="cols"><div><label for="title">Tên truyện</label><input id="title" value="Truyện mẫu"></div><div><label for="author">Tác giả</label><input id="author" placeholder="Không bắt buộc"></div></div><div class="cols"><div><label for="start">Từ chương</label><input id="start" type="number" min="1" value="1"></div><div><label for="end">Đến chương</label><input id="end" type="number" min="1" value="2"></div></div><p class="hint" id="chapterinfo">Chỉ cần dán link trang truyện, hệ thống sẽ tự tìm chương. Có thể chọn phạm vi sau khi quét.</p><button type="button" class="alt" id="fetchchapters">Tải nội dung các chương đã chọn</button></section>
 <section class="card"><h2>04 · Nội dung truyện</h2><textarea id="content" placeholder="Nội dung chương sau khi thu thập sẽ xuất hiện ở đây..."></textarea><p class="hint">Chỉ sử dụng nội dung bạn có quyền sao chép và xuất bản.</p><button type="button" class="alt" id="show">Xem trước</button> <button type="button" id="download">Tạo file ↓</button><div class="status" id="status" aria-live="polite"></div><div class="preview" id="preview"></div></section></main><footer>Reedtt · GitHub Pages + Render · Chỉ xử lý nội dung công khai mà bạn có quyền sử dụng</footer>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+
 <script>
 const $=id=>document.getElementById(id);
 const supportedHosts=['truyenfull.live','wikicv.org','truyenmo.xyz','docln.net','wattpad.com','wordpress.com'];
@@ -163,7 +163,7 @@ function save(blob,name){const a=document.createElement('a');a.href=URL.createOb
 $('check').onclick=loadStory;
 $('show').onclick=()=>{const d=get();$('preview').style.display='block';$('preview').textContent=d.title+'\n'+(d.author?'Tác giả: '+d.author+'\n':'')+'\n'+d.body};
 $('download').onclick=async()=>{const d=get();const status=$('status');status.textContent='Đang tạo file...';try{if(!d.body.trim())throw Error('Hãy nhập nội dung trước.');const fmt=document.querySelector('input[name="format"]:checked').value;const name=(d.title.replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,55)||'truyen')+'.'+fmt;const cover=await coverBytes();const inlineImages=await chapterImages();
-if(fmt==='docx'||fmt==='pdf'){
+if(fmt==='docx'){
  if(!window.docx)throw Error('Không tải được thư viện Word.');
  const para=(text,kind='normal',extra={})=>new docx.Paragraph({text,style:kind==='title'?'StoryTitle':kind==='heading'?'Heading2':'Normal',...extra});
  const paragraphs=[para(d.title,'title')];
@@ -190,15 +190,7 @@ if(fmt==='docx'||fmt==='pdf'){
   ]},
   sections:[{properties:{page:{size:{width:11906,height:16838},margin:{top:720,right:720,bottom:720,left:720,header:360,footer:360}}},children:paragraphs}]
  });
- const wordBlob=await docx.Packer.toBlob(doc);
- if(fmt==='docx'){save(wordBlob,name)}else{
-  status.textContent='Đang chuyển file Word sang PDF...';
-  const b64=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(Error('Không đọc được Word'));reader.readAsDataURL(wordBlob)});
-  const response=await fetch(API+'/convert-docx-pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({docx_base64:b64})});
-  if(!response.ok){let msg='Máy chủ chưa chuyển được Word sang PDF';try{msg=(await response.json()).detail||msg}catch{}throw Error(msg)}
-  const pdfBlob=await response.blob();if(pdfBlob.size<100||pdfBlob.type&&!pdfBlob.type.includes('pdf'))throw Error('PDF trả về không hợp lệ');
-  save(pdfBlob,name);status.textContent='Đã chuyển Word sang PDF thành công.';return;
- }
+ save(await docx.Packer.toBlob(doc),name)
 }
 else if(fmt==='epub'){if(!window.JSZip)throw Error('Không tải được thư viện EPUB.');const zip=new JSZip();zip.file('mimetype','application/epub+zip',{compression:'STORE'});zip.file('META-INF/container.xml','<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');if(cover){zip.file('OEBPS/cover.'+cover.ext,cover.bytes)}inlineImages.forEach((im,i)=>zip.file('OEBPS/image'+i+'.'+im.ext,im.bytes));const paragraphs=bookParagraphs(d);
 zip.file('OEBPS/chapter.xhtml','<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>'+escapeXml(d.title)+'</title></head><body><h1>'+escapeXml(d.title)+'</h1>'+(cover?'<div><img src="cover.'+cover.ext+'" alt="Ảnh bìa truyện" style="max-width:85%;height:auto"/></div>':'')+paragraphs.map(p=>p.heading?'<h2>'+escapeXml(p.text)+'</h2>':'<p>'+escapeXml(p.text)+'</p>').join('')+inlineImages.map((im,i)=>'<p><img src="image'+i+'.'+im.ext+'" alt="Minh họa chương" style="max-width:95%;height:auto"/></p>').join('')+'</body></html>');
