@@ -111,6 +111,32 @@ html[data-theme="day"] .theme-switch button{color:#31668f}
 html[data-theme="day"] .theme-switch button[aria-pressed="true"]{
  background:#448fca;color:#fff;box-shadow:0 2px 8px rgba(45,118,177,.22);
 }
+
+/* Hand-drawn-looking layered pale sky-blue cloud ribbons for Day Mode */
+html[data-theme="day"] body{
+ background:linear-gradient(180deg,#ffffff 0%,#f9fdff 35%,#f3fbff 100%);
+ background-attachment:fixed;
+}
+html[data-theme="day"] body::before{
+ content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+ filter:none;opacity:1;
+ background:
+ radial-gradient(ellipse 180px 62px at 2% 88%,#d4efff 98%,transparent 100%),
+ radial-gradient(ellipse 220px 78px at 18% 91%,#d4efff 98%,transparent 100%),
+ radial-gradient(ellipse 270px 86px at 42% 95%,#d4efff 98%,transparent 100%),
+ radial-gradient(ellipse 210px 70px at 72% 92%,#d4efff 98%,transparent 100%),
+ radial-gradient(ellipse 250px 82px at 97% 91%,#d4efff 98%,transparent 100%),
+ radial-gradient(ellipse 180px 58px at 7% 76%,#e3f5ff 98%,transparent 100%),
+ radial-gradient(ellipse 220px 70px at 28% 79%,#e3f5ff 98%,transparent 100%),
+ radial-gradient(ellipse 180px 58px at 52% 78%,#e3f5ff 98%,transparent 100%),
+ radial-gradient(ellipse 240px 76px at 85% 77%,#e3f5ff 98%,transparent 100%),
+ radial-gradient(ellipse 160px 50px at 2% 33%,#e9f7ff 98%,transparent 100%),
+ radial-gradient(ellipse 180px 54px at 16% 35%,#e9f7ff 98%,transparent 100%),
+ radial-gradient(ellipse 200px 62px at 91% 45%,#e9f7ff 98%,transparent 100%),
+ linear-gradient(to top,#d4efff 0%,#d4efff 9%,transparent 9%),
+ linear-gradient(to top,transparent 0%,transparent 16%,#e3f5ff 16%,#e3f5ff 22%,transparent 22%);
+ background-size:100% 100%;
+}
 </style></head>
 <body><header><img src="novel-box-logo.svg?v=original-eyes-3" alt="Novel Box" style="width:44px;height:44px;object-fit:contain;vertical-align:middle;margin-right:10px"><b>Novel Box</b><div class="theme-switch" role="group" aria-label="Chế độ giao diện"><button type="button" id="theme-day" aria-pressed="false">☀ Day</button><button type="button" id="theme-night" aria-pressed="true">☾ Night</button></div></header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Dán một link truyện · Tìm chương tự động · Xuất Word, EPUB</p>
 <section class="card"><h2>01 · Đường dẫn truyện</h2><label for="source">Nguồn truyện</label><select id="source"><option value="auto">Tự nhận diện theo link</option><option value="truyenfull.live">Truyenfull.live</option><option value="wikicv.org">Wikicv.org</option><option value="truyenmo.xyz">Truyenmo.xyz</option><option value="docln.net">Docln.net</option><option value="wattpad.com">Wattpad.com</option><option value="wordpress.com">WordPress.com</option></select><label for="url">Link trang truyện</label><input id="url" type="url" placeholder="https://trang-truyen.example/truyen/..."><p class="hint">Đọc chương công khai qua backend Render. Chỉ hỗ trợ các nguồn được cấu hình; không hỗ trợ chương khóa hoặc trả phí.</p><button type="button" class="alt" id="check">Thu thập nội dung truyện</button><div class="status" id="urlstatus" aria-live="polite"></div></section>
