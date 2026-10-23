@@ -136,17 +136,17 @@ def chapter_body(soup):
         if isinstance(node,NavigableString):
             return str(node)
         if not isinstance(node,Tag):return ""
-        if node.name=="br":return "\\n"
+        if node.name=="br":return "\n"
         if node.name in ("img","picture","svg"):return ""
         if node.name in ("p","div","section","article","li","blockquote","h1","h2","h3","h4"):
             content="".join(walk(child) for child in node.children).strip()
-            return "\\n\\n"+content+"\\n\\n" if content else ""
+            return "\n\n"+content+"\n\n" if content else ""
         return "".join(walk(child) for child in node.children)
     content="".join(walk(child) for child in chapter.children)
-    content=content.replace("\\xa0"," ").replace("\\r","")
-    content=re.sub(r"[ \\t]+"," ",content)
-    content=re.sub(r" *\\n *","\\n",content)
-    content=re.sub(r"\\n{3,}","\\n\\n",content).strip()
+    content=content.replace("\xa0"," ").replace("\r","")
+    content=re.sub(r"[ \t]+"," ",content)
+    content=re.sub(r" *\n *","\n",content)
+    content=re.sub(r"\n{3,}","\n\n",content).strip()
     return content[:300000],images[:50]
 
 @app.post("/discover")
