@@ -5,6 +5,7 @@ import asyncio
 import httpx
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -106,7 +107,9 @@ def page_links(soup,base,story_path):
 def chapter_body(soup):
     chapter=next((soup.select_one(sel) for sel in SELECTORS if soup.select_one(sel)),None)
     if not chapter:return "",[]
-    for tag in chapter.select("script,style,nav,aside,footer,.ads,.advertisement"):tag.decompose()
+    for tag in chapter.select("script,style,nav,aside,footer,button,.ads,.advertisement,.read-more,.show-more,.more-btn,.expand,.collapse,[role=button]"):tag.decompose()
+    for a in chapter.select("a"):
+        if re.search(r"^(xem thêm|đọc thêm|thu gọn|read more|show more)$",a.get_text(" ",strip=True),re.I):a.decompose()
     images=[]
     for img in chapter.select("img"):
         src=img.get("data-src") or img.get("data-original") or img.get("src")
@@ -140,7 +143,13 @@ async def discover(req:ReadRequest):
             def label(selector):
                 t=soup.select_one(selector)
                 return t.get_text(" ",strip=True) if t else ""
-            description=label(".desc-text,.book-desc,.story-description,.description,.desc,.intro,.summary,[itemprop=description]") or meta("meta[name=description]") or meta("meta[property='og:description']")
+            desc_node=soup.select_one(".desc-text,.book-desc,.story-description,.description,.desc,.intro,.summary,[itemprop=description]")
+            if desc_node:
+                for junk in desc_node.select("button,script,style,.read-more,.show-more,.more-btn,.expand,.collapse,[role=button],a"):
+                    junk.decompose()
+            description=desc_node.get_text(" ",strip=True) if desc_node else ""
+            description=description or meta("meta[name=description]") or meta("meta[property='og:description']")
+            description=re.sub(r"\\s*(?:Xem thêm|Thu gọn|Đọc thêm|Show more|Read more)\\s*$","",description,flags=re.I).strip()
             cover_tag=soup.select_one(".book img,.book-cover img,.info img,.book-info img,.story-cover img,.cover img,meta[property='og:image']")
             cover=normalized_url(base,(cover_tag.get("data-src") or cover_tag.get("src") or cover_tag.get("content") or "")) if cover_tag else None
             categories=[a.get_text(" ",strip=True) for a in soup.select(".tag a,.tags a,.genres a,.genre a,.book-tags a,[itemprop=genre] a") if a.get_text(" ",strip=True)]
@@ -183,3 +192,19 @@ async def batch(req:BatchRequest):
                     return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"Không tải được chương"}
         result=await asyncio.gather(*(fetch_one(item) for item in chosen))
     return {"title":discovery["title"] if discovery else "","author":discovery["author"] if discovery else "","chapters":result,"count":len(result)}
+
+@app.post("/image")
+async def image(req:ReadRequest):
+    u=urlparse(req.url.strip())
+    if u.scheme!="https" or not u.hostname or not allowed(u.hostname.lower()) or u.port not in (None,443):
+        raise HTTPException(400,"Nguồn ảnh không được hỗ trợ.")
+    try:
+        async with httpx.AsyncClient(timeout=18,follow_redirects=False) as client:
+            r=await client.get(req.url,headers={"User-Agent":"Mozilla/5.0","Referer":f"https://{u.hostname}/"})
+            r.raise_for_status()
+            mime=r.headers.get("content-type","").split(";")[0].lower()
+            if mime not in ("image/jpeg","image/png","image/webp") or len(r.content)>5_000_000:
+                raise HTTPException(415,"Ảnh không được hỗ trợ hoặc quá lớn.")
+            return Response(r.content,media_type=mime,headers={"Cache-Control":"public, max-age=3600"})
+    except httpx.HTTPError as exc:
+        raise HTTPException(502,"Không tải được ảnh bìa.") from exc
