@@ -405,8 +405,16 @@ async def batch(req:BatchRequest):
                         return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"NavyTeams: trang chương không có nội dung HTML nhận diện được (có thể tải bằng JavaScript hoặc cấu trúc khác)."}
                     resolved=[image_url(base,x) for x in images] if req.include_images else []
                     return {"title":item["title"],"url":item["url"],"content":content,"images":[x for x in resolved if x]}
-                except (httpx.HTTPError,HTTPException):
-                    return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"Không tải được chương"}
+                except (httpx.HTTPError,HTTPException) as exc:
+                    if isinstance(exc,httpx.HTTPStatusError):
+                        reason=f"Nguồn trả HTTP {exc.response.status_code}"
+                    elif isinstance(exc,HTTPException):
+                        reason=f"Nguồn: {exc.detail}"
+                    elif isinstance(exc,httpx.TimeoutException):
+                        reason="Nguồn phản hồi quá thời gian"
+                    else:
+                        reason=f"Lỗi kết nối nguồn ({type(exc).__name__})"
+                    return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":reason}
         result=await asyncio.gather(*(fetch_one(item) for item in chosen))
     return {"title":discovery["title"] if discovery else "","author":discovery["author"] if discovery else "","chapters":result,"count":len(result)}
 
