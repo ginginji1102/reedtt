@@ -117,9 +117,8 @@ def chapter_links(soup,base,story_path):
     elif host.endswith("inkitt.com"):
         selectors+=", .chapters-list a[href],a[href*='/chapters/'],a[href*='/chapter/']"
     if host.endswith("giatocvuongtai.com"):
-        # WordPress-like /stories/ landing pages: identify same-site chapter anchors
-        # without pulling unrelated stories, menus, or recommendations.
-        selectors+=", .wp-block-post-content a[href],.elementor-widget-container a[href],.story-chapters a[href],.chapters a[href],a[href*='/chapters/'],a[href*='/chapter/'],a[href*='/chuong-']"
+        # Astro story pages link to /reader/?storyId=UUID&chapter=UUID.
+        selectors+=", a[href*='/reader'][href*='storyId='][href*='chapter=']"
     if host.endswith("wordpress.com"):
         # WebToEpub WordpressBaseParser: take ALL anchors in the article content,
         # not just links prefixed "Chapter". This includes titled extras.
@@ -152,8 +151,12 @@ def chapter_links(soup,base,story_path):
             if nr or chapter_title:
                 label=" ".join(x.get_text(" ",strip=True) for x in (nr,chapter_title) if x)
         elif host.endswith("giatocvuongtai.com"):
-            # Require an explicit chapter indicator in label or permalink.
-            if target.hostname!=host or not re.search(r"(?:chương|chuong|chapter|chap)\\s*[-:#.]?\\s*\\d+|/(?:chapters?|chuong)[/-]\\d+|/chuong[-_]\\d+",label+" "+target.path,re.I):continue
+            from urllib.parse import parse_qs
+            params=parse_qs(target.query)
+            if target.hostname!=host or target.path.rstrip("/")!="/reader" or not params.get("storyId") or not params.get("chapter"):continue
+            # Restrict results to this story's UUID when present in page anchors.
+            if not re.search(r"\\b(?:chương|chuong|chapter)\\s*\\d+\\b",label,re.I):continue
+            label=re.search(r"(?:chương|chuong|chapter)\\s*\\d+(?:\\s*[:.\\-–]\\s*[^0-9]{2,100})?",label,re.I).group(0).strip()
         elif not re.search(r"(chương|chuong|chapter)\s*[-:]?\s*\d+|/(chuong|chapter)[-_]?\d+",label+" "+href,re.I):continue
         if host.endswith("navyteams.com"):
             # Chapter list entries may append publication dates in child elements.
@@ -242,6 +245,9 @@ def chapter_body(soup, source_url=''):
             # Work on a copy so cleanup does not mutate the soup used elsewhere.
             from bs4 import BeautifulSoup
             chapter=BeautifulSoup(str(chapter),"html.parser")
+    elif host.endswith("giatocvuongtai.com"):
+        # Reader is a client-rendered Astro app; these are best-effort HTML fallbacks.
+        chapter=next((soup.select_one(sel) for sel in ("[data-reader-content]",".reader-content",".chapter-content",".prose","article") if soup.select_one(sel)),None)
     else:
         chapter=next((soup.select_one(sel) for sel in preferred if soup.select_one(sel)),None) if special else next((soup.select_one(sel) for sel in SELECTORS if soup.select_one(sel)),None)
     if not chapter:return "",[]
