@@ -52,7 +52,7 @@ async function loadStory(){
   storyMeta={title:data.title||"",author:data.author||"",description:data.description||"",categories:data.categories||[],cover:data.cover||""};
   const meta=$("storymeta");meta.replaceChildren();
   if(storyMeta.cover){const img=document.createElement("img");img.src=storyMeta.cover;img.alt="Ảnh bìa truyện";img.style.cssText="width:115px;max-height:180px;object-fit:contain;border-radius:9px;float:left;margin:0 18px 12px 0";img.referrerPolicy="no-referrer";meta.append(img)}
-  for(const [name,val] of [["Tên truyện",storyMeta.title],["Tác giả",storyMeta.author],["Thể loại",storyMeta.categories.join(", ")],["Mô tả",storyMeta.description]]){if(val){const p=document.createElement("p");const b=document.createElement("strong");b.textContent=name+": ";p.append(b,document.createTextNode(val));meta.append(p)}}
+  for(const [name,val] of [["Tên truyện",storyMeta.title],["Tác giả",storyMeta.author],["Thể loại",storyMeta.categories.join(", ")],["Mô tả",storyMeta.description]]){if(val){const p=document.createElement("p");const b=document.createElement("strong");b.textContent=name+": ";p.append(b,document.createTextNode(val));p.style.whiteSpace="pre-line";p.style.lineHeight="1.8";meta.append(p)}}
   downloaded=[];
   if(data.title)$('title').value=data.title;
   if(data.author)$('author').value=data.author;
@@ -128,8 +128,8 @@ async function coverBytes(){
  let blob;
  try{const r=await fetch(storyMeta.cover,{mode:'cors'});if(r.ok)blob=await r.blob()}catch{}
  if(!blob){try{const r=await fetch(API+'/image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:storyMeta.cover})});if(r.ok)blob=await r.blob()}catch{}}
- if(!blob||blob.size>5000000||!/^image\/(png|jpeg|webp)$/.test(blob.type))return null;
- if(blob.type==="image/webp"){try{const bmp=await createImageBitmap(blob);const canvas=document.createElement("canvas");canvas.width=bmp.width;canvas.height=bmp.height;const ctx=canvas.getContext("2d");ctx.drawImage(bmp,0,0);blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/png"));bmp.close()}catch{return null}}
+ if(!blob||blob.size>5000000||!/^image\/(png|jpeg|webp)$/.test(blob.type))throw Error('Không thể tải ảnh bìa từ nguồn. Vui lòng kiểm tra URL ảnh bìa hoặc thử lại.');
+ if(blob.type==="image/webp"){try{const bmp=await createImageBitmap(blob);const canvas=document.createElement("canvas");canvas.width=bmp.width;canvas.height=bmp.height;const ctx=canvas.getContext("2d");ctx.drawImage(bmp,0,0);blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/png"));bmp.close()}catch{throw Error("Không chuyển đổi được ảnh bìa WebP.")}}
  const bytes=new Uint8Array(await blob.arrayBuffer());
  return {bytes,mime:blob.type,ext:blob.type==='image/png'?'png':blob.type==='image/webp'?'webp':'jpg'};
 }
