@@ -394,6 +394,8 @@ async def batch(req:BatchRequest):
                             return {'title':item['title'],'url':item['url'],'content':text,'images':imgs}
                     soup,base=await get_page(client,item["url"])
                     content,images=chapter_body(soup,base)
+                    if not content and (urlparse(base).hostname or "").lower().endswith("navyteams.com"):
+                        return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"NavyTeams: trang chương không có nội dung HTML nhận diện được (có thể tải bằng JavaScript hoặc cấu trúc khác)."}
                     resolved=[image_url(base,x) for x in images] if req.include_images else []
                     return {"title":item["title"],"url":item["url"],"content":content,"images":[x for x in resolved if x]}
                 except (httpx.HTTPError,HTTPException):
