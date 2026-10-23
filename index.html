@@ -20,7 +20,7 @@ button.alt{background:#3a2d4c;box-shadow:none}button:hover{filter:brightness(1.1
 <body><header>📚 <b>Reedtt</b> · Truyện Reader</header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Dán một link truyện · Tìm chương tự động · Xuất Word, EPUB, PDF</p>
 <section class="card"><h2>01 · Đường dẫn truyện</h2><input id="url" type="url" placeholder="https://trang-truyen.example/truyen/..."><p class="hint">Đọc chương công khai qua backend Render. Chỉ hỗ trợ các nguồn được cấu hình; không hỗ trợ chương khóa hoặc trả phí.</p><button type="button" class="alt" id="check">Tìm tất cả chương</button><div class="status" id="urlstatus" aria-live="polite"></div></section>
 <section class="card"><h2>02 · Chọn định dạng</h2><div class="formats"><label><input type="radio" name="format" value="docx" checked>Word (.docx)</label><label><input type="radio" name="format" value="epub">EPUB (.epub)</label><label><input type="radio" name="format" value="pdf">PDF (.pdf)</label></div></section>
-<section class="card"><h2>03 · Thông tin truyện</h2><div class="cols"><div><label for="title">Tên truyện</label><input id="title" value="Truyện mẫu"></div><div><label for="author">Tác giả</label><input id="author" placeholder="Không bắt buộc"></div></div><div class="cols"><div><label for="start">Từ chương</label><input id="start" type="number" min="1" value="1"></div><div><label for="end">Đến chương</label><input id="end" type="number" min="1" value="2"></div></div><p class="hint" id="chapterinfo">Hãy dán link trang truyện và nhấn “Tìm tất cả chương”.</p><label><input id="images" type="checkbox" style="width:auto"> Tải kèm hình ảnh trong chương (nếu có)</label><button type="button" class="alt" id="fetchchapters">Tải nội dung các chương đã chọn</button></section>
+<section class="card"><h2>03 · Thông tin truyện</h2><div class="cols"><div><label for="title">Tên truyện</label><input id="title" value="Truyện mẫu"></div><div><label for="author">Tác giả</label><input id="author" placeholder="Không bắt buộc"></div></div><div class="cols"><div><label for="start">Từ chương</label><input id="start" type="number" min="1" value="1"></div><div><label for="end">Đến chương</label><input id="end" type="number" min="1" value="2"></div></div><p class="hint" id="chapterinfo">Hãy dán link trang truyện và nhấn “Tìm tất cả chương”. Không giới hạn tổng số chương; hệ thống tự chia đợt.</p><label><input id="images" type="checkbox" style="width:auto"> Tải kèm hình ảnh trong chương (nếu có)</label><button type="button" class="alt" id="fetchchapters">Tải nội dung các chương đã chọn</button></section>
 <section class="card"><h2>04 · Nội dung truyện</h2><textarea id="content">Chương 1: Khởi đầu
 
 Buổi sáng hôm ấy, thành phố phủ một lớp sương mỏng. An mở cuốn sổ cũ, đọc lại những dòng chữ mà mình đã viết từ nhiều năm trước.
@@ -55,7 +55,7 @@ async function loadStory(){
   downloaded=[];
   if(data.title)$('title').value=data.title;
   if(data.author)$('author').value=data.author;
-  $('end').value=Math.min(30,discovered.length)||1;
+  $('end').value=discovered.length||1;
   $('chapterinfo').textContent='Đã tìm thấy '+discovered.length+' chương. '+(data.truncated?'Danh sách có thể chưa đầy đủ. ':'')+'Chọn phạm vi rồi nhấn “Tải nội dung các chương đã chọn”.';
   status.textContent=discovered.length?'Đã tìm được '+discovered.length+' chương. Ví dụ: '+discovered.slice(0,3).map(x=>x.title).join(' | '):'Chưa tìm được link chương từ mục lục. Nguồn có thể chặn máy chủ hoặc sử dụng cấu trúc khác.';
  }catch(e){status.textContent='Lỗi tìm chương: '+e.message}
@@ -65,14 +65,18 @@ async function loadChapters(){
  const btn=$('fetchchapters'),status=$('status');
  const start=Number($('start').value),end=Number($('end').value);
  if(!discovered.length){status.textContent='Hãy tìm danh sách chương trước.';return}
- if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end-start>=30){status.textContent='Mỗi lượt tối đa 30 chương, phạm vi không hợp lệ.';return}
- btn.disabled=true;status.textContent='Đang tải '+(end-start+1)+' chương công khai. Vui lòng đợi...';
+ if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>discovered.length){status.textContent='Phạm vi chương không hợp lệ hoặc vượt quá số chương đã tìm được.';return}
+ btn.disabled=true;downloaded=[];status.textContent='Đang chuẩn bị tải '+(end-start+1)+' chương...';
  try{
-  const data=await api('/batch',{url:$('url').value.trim(),start,end,include_images:$('images').checked});
-  downloaded=data.chapters||[];
-  $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||'[Không tải được nội dung]')).join('\n\n\n');
-  status.textContent='Đã xử lý '+downloaded.length+' chương, '+downloaded.filter(x=>x.content).length+' chương có nội dung. Có thể xem trước và tạo file.';
- }catch(e){status.textContent='Lỗi tải chương: '+e.message}
+  for(let from=start;from<=end;from+=20){
+   const to=Math.min(from+19,end);
+   status.textContent='Đang tải chương '+from+'–'+to+' / '+end+'... ('+downloaded.length+'/'+(end-start+1)+' chương đã xử lý)';
+   const data=await api('/batch',{url:$('url').value.trim(),start:from,end:to,include_images:$('images').checked});
+   downloaded.push(...(data.chapters||[]));
+   $('content').value=downloaded.map(x=>x.title+'\\n\\n'+(x.content||'[Không tải được nội dung]')).join('\\n\\n\\n');
+  }
+  status.textContent='Đã xử lý '+downloaded.length+' chương, '+downloaded.filter(x=>x.content).length+' chương có nội dung. Có thể tạo file.';
+ }catch(e){status.textContent='Đã xử lý '+downloaded.length+' chương trước khi gián đoạn: '+e.message+'. Bạn có thể xuất phần đã tải.'}
  finally{btn.disabled=false}
 }
 $('fetchchapters').onclick=loadChapters;
