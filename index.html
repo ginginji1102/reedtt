@@ -18,7 +18,7 @@ button.alt{background:#3a2d4c;box-shadow:none}button:hover{filter:brightness(1.1
 @media(max-width:600px){main{margin:30px auto}.cols,.formats{grid-template-columns:1fr}.card{padding:20px}}
 </style></head>
 <body><header>📚 <b>Reedtt</b> · Truyện Reader</header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Giao diện demo xuất Word, EPUB và PDF trực tuyến</p>
-<section class="card"><h2>01 · Đường dẫn truyện</h2><input id="url" type="url" placeholder="https://trang-truyen.example/truyen/..."><p class="hint">Bản demo chưa có chức năng tự lấy chương từ đường dẫn. Bạn có thể nhập văn bản mẫu ở phần dưới để thử xuất file.</p><button type="button" class="alt" id="check">Kiểm tra URL</button><div class="status" id="urlstatus" aria-live="polite"></div></section>
+<section class="card"><h2>01 · Đường dẫn truyện</h2><input id="url" type="url" placeholder="https://trang-truyen.example/truyen/..."><p class="hint">Thử đọc truyện công khai từ URL. Một số nguồn sẽ chặn trình duyệt (CORS) và cần máy chủ riêng. Không hỗ trợ chương khóa hoặc trả phí.</p><button type="button" class="alt" id="check">Kiểm tra URL</button><div class="status" id="urlstatus" aria-live="polite"></div></section>
 <section class="card"><h2>02 · Chọn định dạng</h2><div class="formats"><label><input type="radio" name="format" value="docx" checked>Word (.docx)</label><label><input type="radio" name="format" value="epub">EPUB (.epub)</label><label><input type="radio" name="format" value="pdf">PDF (.pdf)</label></div></section>
 <section class="card"><h2>03 · Thông tin truyện</h2><div class="cols"><div><label for="title">Tên truyện</label><input id="title" value="Truyện mẫu"></div><div><label for="author">Tác giả</label><input id="author" placeholder="Không bắt buộc"></div></div><div class="cols"><div><label for="start">Từ chương</label><input id="start" type="number" min="1" value="1"></div><div><label for="end">Đến chương</label><input id="end" type="number" min="1" value="2"></div></div><p class="hint">Phạm vi chương hiện chỉ để minh họa giao diện, chưa lọc nội dung tự động.</p></section>
 <section class="card"><h2>04 · Nội dung thử nghiệm</h2><textarea id="content">Chương 1: Khởi đầu
@@ -33,6 +33,30 @@ Cơn mưa đến bất ngờ. Dưới mái hiên nhỏ, An gặp lại người 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
+const supportedHosts=['truyenfull.live','wikicv.org','truyenmo.xyz','docln.net','wattpad.com','wordpress.com','otr uyen.online'.replace(' ','')];
+function cleanText(node){return (node?.innerText||node?.textContent||'').replace(/\\n{3,}/g,'\\n\\n').trim()}
+function safeUrl(value){const u=new URL(value);if(!['https:','http:'].includes(u.protocol))throw Error('Chỉ hỗ trợ đường dẫn HTTP hoặc HTTPS.');return u}
+async function loadStory(){
+ const status=$('urlstatus'),btn=$('check');let u;
+ try{u=safeUrl($('url').value.trim())}catch{status.textContent='Vui lòng nhập URL truyện hợp lệ (https://...).';return}
+ btn.disabled=true;status.textContent='Đang thử đọc trang truyện...';
+ try{
+  const res=await fetch(u.href,{method:'GET',mode:'cors',credentials:'omit',signal:AbortSignal.timeout(12000)});
+  if(!res.ok)throw Error('Máy chủ nguồn trả về HTTP '+res.status);
+  const html=await res.text();const doc=new DOMParser().parseFromString(html,'text/html');
+  doc.querySelectorAll('script,style,nav,footer,header,aside').forEach(n=>n.remove());
+  const title=doc.querySelector('meta[property="og:title"]')?.content||doc.querySelector('h1')?.textContent||doc.title||'';
+  const author=doc.querySelector('meta[name="author"]')?.content||doc.querySelector('[itemprop="author"],.author')?.textContent||'';
+  const content=doc.querySelector('#chapter-content,.chapter-content,.reading-content,.entry-content,.chapter-c,.chapter-content-text,article,[itemprop="articleBody"]');
+  const text=cleanText(content);
+  const links=[...doc.querySelectorAll('a[href]')].map(a=>({name:cleanText(a),url:a.href})).filter(x=>/chương\\s*\\d+|chapter\\s*\\d+/i.test(x.name)&&/^https?:/.test(x.url));
+  if(title)$('title').value=title.trim().slice(0,180);
+  if(author)$('author').value=author.trim().slice(0,120);
+  if(text.length>120){$('content').value=text;status.textContent='Đã đọc nội dung công khai ('+text.length+' ký tự). Có thể xem trước hoặc xuất file. '+(links.length?'Tìm thấy '+links.length+' liên kết chương; chưa tải hàng loạt.':'');}
+  else status.textContent='Đã kết nối trang nhưng chưa nhận diện được nội dung chương. '+(links.length?'Phát hiện '+links.length+' liên kết chương. Hãy nhập URL một chương để thử đọc.':'Hãy thử URL chương truyện công khai.');
+ }catch(err){status.textContent='Không thể đọc trực tiếp từ GitHub Pages: '+(err instanceof TypeError?'nguồn có thể chặn CORS hoặc kết nối mạng. Cần backend được nguồn cho phép.':err.message)}
+ finally{btn.disabled=false}
+}
 const escapeXml=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const get=()=>({title:$('title').value.trim()||'Truyện mẫu',author:$('author').value.trim(),body:$('content').value});
 function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)}
