@@ -18,27 +18,22 @@ button.alt{background:#3a2d4c;box-shadow:none}button:hover{filter:brightness(1.1
 @media(max-width:600px){main{margin:30px auto}.cols,.formats{grid-template-columns:1fr}.card{padding:20px}}
 </style></head>
 <body><header>📚 <b>Reedtt</b> · Truyện Reader</header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Dán một link truyện · Tìm chương tự động · Xuất Word, EPUB, PDF</p>
-<section class="card"><h2>01 · Đường dẫn truyện</h2><input id="url" type="url" placeholder="https://trang-truyen.example/truyen/..."><p class="hint">Đọc chương công khai qua backend Render. Chỉ hỗ trợ các nguồn được cấu hình; không hỗ trợ chương khóa hoặc trả phí.</p><button type="button" class="alt" id="check">Tìm tất cả chương</button><div class="status" id="urlstatus" aria-live="polite"></div></section>
+<section class="card"><h2>01 · Đường dẫn truyện</h2><label for="source">Nguồn truyện</label><select id="source"><option value="auto">Tự nhận diện theo link</option><option value="truyenfull.live">Truyenfull.live</option><option value="wikicv.org">Wikicv.org</option><option value="truyenmo.xyz">Truyenmo.xyz</option><option value="docln.net">Docln.net</option><option value="wattpad.com">Wattpad.com</option><option value="wordpress.com">WordPress.com</option></select><label for="url">Link trang truyện</label><input id="url" type="url" placeholder="https://trang-truyen.example/truyen/..."><p class="hint">Đọc chương công khai qua backend Render. Chỉ hỗ trợ các nguồn được cấu hình; không hỗ trợ chương khóa hoặc trả phí.</p><button type="button" class="alt" id="check">Thu thập nội dung truyện</button><div class="status" id="urlstatus" aria-live="polite"></div></section>
 <section class="card"><h2>02 · Chọn định dạng</h2><div class="formats"><label><input type="radio" name="format" value="docx" checked>Word (.docx)</label><label><input type="radio" name="format" value="epub">EPUB (.epub)</label><label><input type="radio" name="format" value="pdf">PDF (.pdf)</label></div></section>
-<section class="card"><h2>03 · Thông tin truyện</h2><div class="cols"><div><label for="title">Tên truyện</label><input id="title" value="Truyện mẫu"></div><div><label for="author">Tác giả</label><input id="author" placeholder="Không bắt buộc"></div></div><div class="cols"><div><label for="start">Từ chương</label><input id="start" type="number" min="1" value="1"></div><div><label for="end">Đến chương</label><input id="end" type="number" min="1" value="2"></div></div><p class="hint" id="chapterinfo">Hãy dán link trang truyện và nhấn “Tìm tất cả chương”. Không giới hạn tổng số chương; hệ thống tự chia đợt.</p><label><input id="images" type="checkbox" style="width:auto"> Tải kèm hình ảnh trong chương (nếu có)</label><button type="button" class="alt" id="fetchchapters">Tải nội dung các chương đã chọn</button></section>
-<section class="card"><h2>04 · Nội dung truyện</h2><textarea id="content">Chương 1: Khởi đầu
-
-Buổi sáng hôm ấy, thành phố phủ một lớp sương mỏng. An mở cuốn sổ cũ, đọc lại những dòng chữ mà mình đã viết từ nhiều năm trước.
-
-Chương 2: Cuộc gặp
-
-Cơn mưa đến bất ngờ. Dưới mái hiên nhỏ, An gặp lại người mà mình từng nghĩ sẽ không bao giờ gặp nữa.</textarea><p class="hint">Chỉ sử dụng nội dung bạn có quyền sao chép và xuất bản.</p><button type="button" class="alt" id="show">Xem trước</button> <button type="button" id="download">Tạo file ↓</button><div class="status" id="status" aria-live="polite"></div><div class="preview" id="preview"></div></section></main><footer>Reedtt · GitHub Pages + Render · Chỉ xử lý nội dung công khai mà bạn có quyền sử dụng</footer>
+<section class="card"><h2>03 · Thông tin truyện</h2><div class="cols"><div><label for="title">Tên truyện</label><input id="title" value="Truyện mẫu"></div><div><label for="author">Tác giả</label><input id="author" placeholder="Không bắt buộc"></div></div><div class="cols"><div><label for="start">Từ chương</label><input id="start" type="number" min="1" value="1"></div><div><label for="end">Đến chương</label><input id="end" type="number" min="1" value="2"></div></div><p class="hint" id="chapterinfo">Chỉ cần dán link trang truyện, hệ thống sẽ tự tìm chương. Có thể chọn phạm vi sau khi quét.</p><label><input id="images" type="checkbox" style="width:auto"> Tải kèm hình ảnh trong chương (nếu có)</label><button type="button" class="alt" id="fetchchapters">Tải nội dung các chương đã chọn</button></section>
+<section class="card"><h2>04 · Nội dung truyện</h2><textarea id="content" placeholder="Nội dung chương sau khi thu thập sẽ xuất hiện ở đây..."></textarea><p class="hint">Chỉ sử dụng nội dung bạn có quyền sao chép và xuất bản.</p><button type="button" class="alt" id="show">Xem trước</button> <button type="button" id="download">Tạo file ↓</button><div class="status" id="status" aria-live="polite"></div><div class="preview" id="preview"></div></section></main><footer>Reedtt · GitHub Pages + Render · Chỉ xử lý nội dung công khai mà bạn có quyền sử dụng</footer>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
-const supportedHosts=['truyenfull.live','wikicv.org','truyenmo.xyz','docln.net','wattpad.com','wordpress.com','otr uyen.online'.replace(' ','')];
+const supportedHosts=['truyenfull.live','wikicv.org','truyenmo.xyz','docln.net','wattpad.com','wordpress.com'];
 function cleanText(node){return (node?.innerText||node?.textContent||'').replace(/\\n{3,}/g,'\\n\\n').trim()}
 function safeUrl(value){const u=new URL(value);if(!['https:','http:'].includes(u.protocol))throw Error('Chỉ hỗ trợ đường dẫn HTTP hoặc HTTPS.');return u}
 const API='https://reedtt-reader-api.onrender.com';
 let discovered=[];
 let downloaded=[];
+$('url').addEventListener('input',()=>{try{const host=new URL($('url').value).hostname.replace(/^www\\./,'');$('source').value=[...$('source').options].some(o=>o.value===host)?host:'auto'}catch{}});
 async function api(path,body){
  const r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(120000)});
  const data=await r.json().catch(()=>({}));
@@ -47,7 +42,7 @@ async function api(path,body){
 }
 async function loadStory(){
  const status=$('urlstatus'),btn=$('check');
- let u;try{u=safeUrl($('url').value.trim())}catch{status.textContent='Nhập URL HTTPS hợp lệ.';return}
+ let u;try{u=safeUrl($('url').value.trim());const src=$('source').value;if(src!=='auto'&&!(u.hostname===src||u.hostname.endsWith('.'+src)))throw Error('Nguồn đã chọn không khớp với link.')}catch(e){status.textContent=e.message||'Nhập URL HTTPS hợp lệ.';return}
  btn.disabled=true;status.textContent='Đang rà mục lục và các trang danh sách chương...';
  try{
   const data=await api('/discover',{url:u.href});
@@ -57,7 +52,8 @@ async function loadStory(){
   if(data.author)$('author').value=data.author;
   $('end').value=discovered.length||1;
   $('chapterinfo').textContent='Đã tìm thấy '+discovered.length+' chương. '+(data.truncated?'Danh sách có thể chưa đầy đủ. ':'')+'Chọn phạm vi rồi nhấn “Tải nội dung các chương đã chọn”.';
-  status.textContent=discovered.length?'Đã tìm được '+discovered.length+' chương. Ví dụ: '+discovered.slice(0,3).map(x=>x.title).join(' | '):'Chưa tìm được link chương từ mục lục. Nguồn có thể chặn máy chủ hoặc sử dụng cấu trúc khác.';
+  status.textContent=discovered.length?'Đã tìm được '+discovered.length+' chương. Đang tự tải nội dung...':'Chưa tìm được link chương từ mục lục. Nguồn có thể chặn máy chủ hoặc sử dụng cấu trúc khác.';
+  if(discovered.length)await loadChapters();
  }catch(e){status.textContent='Lỗi tìm chương: '+e.message}
  finally{btn.disabled=false}
 }
@@ -75,7 +71,7 @@ async function loadChapters(){
    downloaded.push(...(data.chapters||[]));
    $('content').value=downloaded.map(x=>x.title+'\\n\\n'+(x.content||'[Không tải được nội dung]')).join('\\n\\n\\n');
   }
-  status.textContent='Đã xử lý '+downloaded.length+' chương, '+downloaded.filter(x=>x.content).length+' chương có nội dung. Có thể tạo file.';
+  status.textContent='Đã xử lý '+downloaded.length+' chương, '+downloaded.filter(x=>x.content).length+' chương có nội dung. Chọn Word / EPUB / PDF rồi bấm Tạo file.';
  }catch(e){status.textContent='Đã xử lý '+downloaded.length+' chương trước khi gián đoạn: '+e.message+'. Bạn có thể xuất phần đã tải.'}
  finally{btn.disabled=false}
 }
