@@ -14,8 +14,8 @@ from pydantic import BaseModel
 app = FastAPI(title="Reedtt Reader API")
 app.add_middleware(CORSMiddleware, allow_origins=["https://yuu110299.github.io", "https://ginginji1102.github.io"], allow_methods=["GET","POST"], allow_headers=["*"])
 
-ALLOWED = ("truyenfull.live", "wattpad.com", "wordpress.com", "navyteams.com", "inkitt.com")
-SELECTORS = ("#chapter-content", ".chapter-content", ".reading-content", ".entry-content", ".chapter-c", "article", "[itemprop=articleBody]")
+ALLOWED = ("truyenfull.live", "wattpad.com", "wordpress.com", "navyteams.com", "inkitt.com", "giatocvuongtai.com")
+SELECTORS = ("#chapter-content", "#chapterContent", "#chapter-content-body", ".chapter-reading", ".chapter-body", ".chapter-text", ".reading-content", ".entry-content", ".chapter-content", ".reading-content", ".entry-content", ".chapter-c", "article", "[itemprop=articleBody]")
 class ReadRequest(BaseModel):
     url: str
 
@@ -116,6 +116,10 @@ def chapter_links(soup,base,story_path):
         selectors+=",a[href^='/'][href*='-'],a[href*='wattpad.com/']"
     elif host.endswith("inkitt.com"):
         selectors+=", .chapters-list a[href],a[href*='/chapters/'],a[href*='/chapter/']"
+    if host.endswith("giatocvuongtai.com"):
+        # WordPress-like /stories/ landing pages: identify same-site chapter anchors
+        # without pulling unrelated stories, menus, or recommendations.
+        selectors+=", .wp-block-post-content a[href],.elementor-widget-container a[href],.story-chapters a[href],.chapters a[href],a[href*='/chapters/'],a[href*='/chapter/'],a[href*='/chuong-']"
     if host.endswith("wordpress.com"):
         # WebToEpub WordpressBaseParser: take ALL anchors in the article content,
         # not just links prefixed "Chapter". This includes titled extras.
@@ -147,6 +151,9 @@ def chapter_links(soup,base,story_path):
             chapter_title=a.select_one(".chapter-title")
             if nr or chapter_title:
                 label=" ".join(x.get_text(" ",strip=True) for x in (nr,chapter_title) if x)
+        elif host.endswith("giatocvuongtai.com"):
+            # Require an explicit chapter indicator in label or permalink.
+            if target.hostname!=host or not re.search(r"(?:chương|chuong|chapter|chap)\\s*[-:#.]?\\s*\\d+|/(?:chapters?|chuong)[/-]\\d+|/chuong[-_]\\d+",label+" "+target.path,re.I):continue
         elif not re.search(r"(chương|chuong|chapter)\s*[-:]?\s*\d+|/(chuong|chapter)[-_]?\d+",label+" "+href,re.I):continue
         if host.endswith("navyteams.com"):
             # Chapter list entries may append publication dates in child elements.
