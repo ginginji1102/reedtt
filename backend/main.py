@@ -14,7 +14,7 @@ from pydantic import BaseModel
 app = FastAPI(title="Reedtt Reader API")
 app.add_middleware(CORSMiddleware, allow_origins=["https://yuu110299.github.io", "https://ginginji1102.github.io"], allow_methods=["GET","POST"], allow_headers=["*"])
 
-ALLOWED = ("truyenfull.live", "wikicv.org", "truyenmo.xyz", "docln.net", "wattpad.com", "wordpress.com", "navyteams.com")
+ALLOWED = ("truyenfull.live", "wikicv.org", "truyenmo.xyz", "docln.net", "wattpad.com", "wordpress.com", "navyteams.com", "inkitt.com")
 SELECTORS = ("#chapter-content", ".chapter-content", ".reading-content", ".entry-content", ".chapter-c", "article", "[itemprop=articleBody]")
 class ReadRequest(BaseModel):
     url: str
@@ -103,12 +103,22 @@ async def get_page(client, url):
 
 def chapter_links(soup,base,story_path):
     found={}
+    host=(urlparse(base).hostname or "").lower()
     selectors=".list-chapter a[href],#list-chapter a[href],.chapter-list a[href],.list-chapters a[href],ul.list-chapter a[href],a[href*='chuong-'],a[href*='chapter-']"
+    if host.endswith("wattpad.com"):
+        selectors+=",a[href^='/'][href*='-'],a[href*='wattpad.com/']"
+    elif host.endswith("inkitt.com"):
+        selectors+=",a[href*='/chapters/'],a[href*='/chapter/']"
     for a in soup.select(selectors):
         href=normalized_url(base,a.get("href",""))
         if not href or urlparse(href).path.rstrip("/") == story_path.rstrip("/"): continue
         label=a.get_text(" ",strip=True) or a.get("title","")
-        if not re.search(r"(chương|chuong|chapter)\s*[-:]?\s*\d+|/(chuong|chapter)[-_]?\d+",label+" "+href,re.I):continue
+        target=urlparse(href)
+        if host.endswith("wattpad.com"):
+            if not re.fullmatch(r"/\d{6,}(?:-[^/]*)?/?",target.path):continue
+        elif host.endswith("inkitt.com"):
+            if not re.search(r"/chapters?/[^/]+",target.path,re.I):continue
+        elif not re.search(r"(chương|chuong|chapter)\s*[-:]?\s*\d+|/(chuong|chapter)[-_]?\d+",label+" "+href,re.I):continue
         found[href]={"title":label[:180] or href.rsplit("/",1)[-1],"url":href}
     return list(found.values())
 
