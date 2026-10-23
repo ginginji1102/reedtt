@@ -350,15 +350,33 @@ async def discover(req:ReadRequest):
                     if lines:description="\n\n".join(lines)[:15000]
             description=description or meta("meta[name=description]") or meta("meta[property='og:description']")
             description=re.sub(r"\s*(?:Xem thêm|Thu gọn|Đọc thêm|Show more|Read more)\s*$","",description,flags=re.I).strip()
-            cover_tag=soup.select_one(".book-cover img,.book img,.story-cover img,.cover img,.info img,meta[property='og:image'],meta[name='twitter:image']")
-            cover_url=(cover_tag.get("data-src") or cover_tag.get("data-original") or cover_tag.get("data-lazy-src") or cover_tag.get("src") or cover_tag.get("content") or "") if cover_tag else ""
-            inkitt_cover=soup.select_one("div.story-horizontal-cover__front") if (urlparse(base).hostname or '').lower().endswith("inkitt.com") else None
-            cover_css=inkitt_cover.get("style","") if inkitt_cover else ""
-            cover_match=re.search(r"url\(\s*['\"]?([^'\"\)]+)",cover_css,re.I)
-            cover=image_url(base,(wattpad_data or {}).get('cover') or (cover_match.group(1) if cover_match else "") or meta("meta[property='og:image']") or meta("meta[name='twitter:image']") or cover_url)
-            if not cover:
-                raw=meta("meta[property='og:image']") or meta("meta[name='twitter:image']")
-                cover=image_url(base,raw) if raw else None
+            host=(urlparse(base).hostname or "").lower()
+            if host.endswith("navyteams.com"):
+                # The chapter page can advertise a website icon as og:image.
+                # Prefer the actual book cover, never a favicon or generic site icon.
+                candidates=[]
+                for node in soup.select(".book-cover img,.story-cover img,.novel-cover img,.cover img,.book-info img,.novel-info img,img[src*='ridicdn.net/cover/'],img[data-src*='ridicdn.net/cover/']"):
+                    raw=node.get("data-src") or node.get("data-original") or node.get("src") or ""
+                    if raw:candidates.append(raw)
+                candidates.extend([meta("meta[property='og:image']"),meta("meta[name='twitter:image']")])
+                def is_book_cover(raw):
+                    u=urlparse(urljoin(base,raw))
+                    p=u.path.lower()
+                    return bool(raw) and not any(x in p for x in ("favicon","/icon","logo","avatar","apple-touch")) and (
+                        "ridicdn.net/cover/" in (u.netloc+p) or
+                        any(x in p for x in ("/cover/","/covers/","book-cover","novel-cover"))
+                    )
+                cover=next((image_url(base,raw) for raw in candidates if is_book_cover(raw)),None)
+            else:
+                cover_tag=soup.select_one(".book-cover img,.book img,.story-cover img,.cover img,.info img,meta[property='og:image'],meta[name='twitter:image']")
+                cover_url=(cover_tag.get("data-src") or cover_tag.get("data-original") or cover_tag.get("data-lazy-src") or cover_tag.get("src") or cover_tag.get("content") or "") if cover_tag else ""
+                inkitt_cover=soup.select_one("div.story-horizontal-cover__front") if host.endswith("inkitt.com") else None
+                cover_css=inkitt_cover.get("style","") if inkitt_cover else ""
+                cover_match=re.search(r"url\\(\\s*['\\\"]?([^'\\\"\\)]+)",cover_css,re.I)
+                cover=image_url(base,(wattpad_data or {}).get('cover') or (cover_match.group(1) if cover_match else "") or meta("meta[property='og:image']") or meta("meta[name='twitter:image']") or cover_url)
+                if not cover:
+                    raw=meta("meta[property='og:image']") or meta("meta[name='twitter:image']")
+                    cover=image_url(base,raw) if raw else None
             categories=[a.get_text(" ",strip=True) for a in soup.select(".tag a,.tags a,.genres a,.genre a,.book-tags a,[itemprop=genre] a") if a.get_text(" ",strip=True)]
             if not categories:
                 raw=label("[itemprop=genre],.genres,.genre,.book-tags")
