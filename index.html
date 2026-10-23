@@ -430,13 +430,13 @@ html[data-theme="day"] .theme-switch{background:rgba(237,248,255,.58);border-col
 html[data-theme="day"] .theme-switch button{color:#285e84}
 html[data-theme="day"] .theme-switch button[aria-pressed="true"]{background:rgba(255,255,255,.94);color:#276c9d;box-shadow:0 2px 7px rgba(32,99,147,.15)}
 
-/* Day header: preserve the earlier sky-blue translucent gradient */
+/* Restore earlier soft powder-blue Day header (before sky-blue adjustment) */
 html[data-theme="day"] header{
- background:linear-gradient(105deg,rgba(145,202,239,.68) 0%,rgba(113,181,229,.70) 50%,rgba(91,162,218,.73) 100%);
- border-bottom:1px solid rgba(224,246,255,.52);
- box-shadow:0 3px 16px rgba(37,102,151,.12);
- backdrop-filter:blur(9px);
- -webkit-backdrop-filter:blur(9px);
+ background:linear-gradient(110deg,rgba(226,240,249,.88) 0%,rgba(196,222,239,.86) 52%,rgba(170,207,231,.88) 100%);
+ border-bottom:1px solid rgba(114,162,192,.38);
+ box-shadow:0 3px 15px rgba(40,96,135,.11);
+ backdrop-filter:blur(12px);
+ -webkit-backdrop-filter:blur(12px);
 }
 /* Only the three requested Day Mode buttons get the new hover style */
 html[data-theme="day"] #check:hover,
