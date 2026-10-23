@@ -126,7 +126,8 @@ function cleanSourceMarks(text){
  return String(text||'').replace(/(?:truyenfullvn|truyenfulllive|truyenfull|truyen full)/gi,'').replace(/[ \\t]{2,}/g,' ').replace(/ *\\n */g,'\\n').trim();
 }
 function sourceParagraphs(text){
- return cleanSourceMarks(text).split(/\\n{2,}/).map(x=>x.replace(/\\n/g,' ').trim()).filter(Boolean);
+ const cleaned=cleanSourceMarks(text).replace(/\\r\\n?/g,'\\n');
+ return cleaned.split(/\\n+/).map(x=>x.trim()).filter(Boolean);
 }
 function bookParagraphs(d){
  const out=[];
@@ -180,7 +181,7 @@ if(fmt==='docx'){
   for(const block of sourceParagraphs(chapter.content||'[Không tải được nội dung]')){if(block.trim())paragraphs.push(para(block.trim()))}
   for(const im of inlineImages.filter(x=>x.chapter===i))paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,children:[new docx.ImageRun({data:im.bytes,transformation:{width:300,height:300},type:im.ext})]}));
  }
- if(!downloaded.length)for(const block of $('content').value.split(/\n{2,}/))if(block.trim())paragraphs.push(para(block.trim()));
+ if(!downloaded.length)for(const block of sourceParagraphs($('content').value))if(block.trim())paragraphs.push(para(block.trim()));
  const doc=new docx.Document({
   styles:{default:{document:{run:{font:'Tahoma',size:22,color:'000000'},paragraph:{spacing:{after:160,line:360}}}},paragraphStyles:[
    {id:'StoryTitle',name:'Story Title',basedOn:'Normal',next:'Normal',run:{font:'Cambria',size:72,bold:true,color:'1F3864'},paragraph:{alignment:docx.AlignmentType.CENTER,spacing:{after:140}}},
