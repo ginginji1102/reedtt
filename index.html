@@ -188,7 +188,7 @@ if(fmt==='docx'){
    {id:'Heading1',name:'Heading 1',basedOn:'Normal',next:'Normal',run:{font:'Cambria',size:32,bold:true,color:'1F3864'},paragraph:{spacing:{before:240,after:0}}},
    {id:'Heading2',name:'Heading 2',basedOn:'Normal',next:'Normal',run:{font:'Tahoma',size:22,bold:true,color:'000000'},paragraph:{spacing:{before:40,after:0,line:360}}}
   ]},
-  sections:[{children:paragraphs}]
+  sections:[{properties:{page:{size:{width:11906,height:16838},margin:{top:720,right:720,bottom:720,left:720,header:360,footer:360}}},children:paragraphs}]
  });
  save(await docx.Packer.toBlob(doc),name)
 }
@@ -199,10 +199,10 @@ else{
  if(!window.jspdf||!window.html2canvas)throw Error('Không tải được thư viện PDF.');
  const pdf=new jspdf.jsPDF({unit:'mm',format:'a4',compress:true});
  const root=document.createElement('div');
- root.style.cssText='position:fixed;left:-12000px;top:0;width:794px;background:#fff;color:#111;font-family:Tahoma,Arial,sans-serif;font-size:14.67px;line-height:1.5;z-index:-1';
+ root.style.cssText='position:fixed;left:0;top:0;width:794px;background:#fff;color:#111;font-family:Tahoma,Arial,sans-serif;font-size:14.67px;line-height:1.5;z-index:2147483647;pointer-events:none';
  document.body.appendChild(root);
  const pages=[];
- const newPage=()=>{const page=document.createElement('div');page.style.cssText='width:794px;height:1122px;box-sizing:border-box;padding:76px 70px;background:white;overflow:hidden';root.appendChild(page);pages.push(page);return page};
+ const newPage=()=>{const page=document.createElement('div');page.style.cssText='width:794px;height:1122px;box-sizing:border-box;padding:48px 48px;background:white;overflow:hidden';root.appendChild(page);pages.push(page);return page};
  let page=newPage();
  const addBlock=(node)=>{page.appendChild(node);if(page.scrollHeight>1122&&page.children.length>1){page.removeChild(node);page=newPage();page.appendChild(node)}};
  const textBlock=(value,heading=false)=>{const el=document.createElement(heading?'h2':'p');el.textContent=value;el.style.cssText=heading?'font-family:Tahoma;font-size:17px;font-weight:bold;margin:18px 0 12px;color:#111':'font-family:Tahoma;font-size:14.67px;line-height:1.5;margin:0 0 12px;white-space:pre-wrap;overflow-wrap:anywhere';addBlock(el)};
@@ -216,9 +216,10 @@ else{
  if(!downloaded.length)for(const p of sourceParagraphs($('content').value))textBlock(p);
  try{
   await document.fonts.ready;
+  await Promise.all(Array.from(root.querySelectorAll('img')).map(img=>img.decode().catch(()=>{})));
   for(let i=0;i<pages.length;i++){
    status.textContent='Đang tạo PDF trang '+(i+1)+'/'+pages.length;
-   const canvas=await html2canvas(pages[i],{scale:1.35,backgroundColor:'#ffffff',useCORS:true,logging:false});
+   const canvas=await html2canvas(pages[i],{scale:1.35,backgroundColor:'#ffffff',useCORS:true,logging:false,scrollX:0,scrollY:0,windowWidth:1000});
    if(i)pdf.addPage();
    pdf.addImage(canvas.toDataURL('image/jpeg',0.83),'JPEG',0,0,210,297);
   }
