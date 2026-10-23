@@ -325,6 +325,37 @@ html[data-theme="day"] header img{
 html[data-theme="day"] .theme-switch{background:rgba(255,255,255,.24);border-color:rgba(255,255,255,.7)}
 html[data-theme="day"] .theme-switch button{color:#fff}
 html[data-theme="day"] .theme-switch button[aria-pressed="true"]{background:#fff;color:#226a9e}
+
+/* Day header: gradient tuned to the original pale cat-book logo, without recoloring the logo */
+html[data-theme="day"] header{
+ background:linear-gradient(105deg,#86b8e2 0%,#699fd1 50%,#4d82bc 100%);
+ border-bottom:1px solid rgba(230,243,255,.75);
+ box-shadow:0 4px 18px rgba(42,91,148,.18);
+}
+html[data-theme="day"] header img{
+ filter:drop-shadow(0 1px 4px rgba(28,67,118,.32));
+}
+html[data-theme="day"] header b{color:#fff!important;text-shadow:0 1px 3px rgba(30,65,112,.35)}
+/* Day hero: plain white text, no glow, shadow, badge or background */
+html[data-theme="day"] main > h1{
+ color:#fff!important;
+ text-shadow:none!important;
+ filter:none;
+}
+html[data-theme="day"] main > p.lead{
+ color:#fff!important;
+ text-shadow:none!important;
+ filter:none;
+ background:none!important;
+ border:0!important;
+ border-radius:0!important;
+ box-shadow:none!important;
+ backdrop-filter:none!important;
+ -webkit-backdrop-filter:none!important;
+ padding:0;
+ display:block;
+ margin:12px 0 36px;
+}
 </style></head>
 <body><header><img src="novel-box-logo.svg?v=original-eyes-3" alt="Novel Box" style="width:44px;height:44px;object-fit:contain;vertical-align:middle;margin-right:10px"><b>Novel Box</b><div class="theme-switch" role="group" aria-label="Chế độ giao diện"><button type="button" id="theme-day" aria-pressed="false">☀ Day</button><button type="button" id="theme-night" aria-pressed="true">☾ Night</button></div></header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Dán một link truyện · Tìm chương tự động · Xuất Word, EPUB</p>
 <section class="card"><h2>01 · Đường dẫn truyện</h2><label for="source">Nguồn truyện</label><select id="source"><option value="auto">Tự nhận diện theo link</option><option value="truyenfull.live">Truyenfull.live</option><option value="wikicv.org">Wikicv.org</option><option value="truyenmo.xyz">Truyenmo.xyz</option><option value="docln.net">Docln.net</option><option value="wattpad.com">Wattpad.com</option><option value="wordpress.com">WordPress.com</option></select><label for="url">Link trang truyện</label><input id="url" type="url" placeholder="https://trang-truyen.example/truyen/..."><p class="hint">Đọc chương công khai qua backend Render. Chỉ hỗ trợ các nguồn được cấu hình; không hỗ trợ chương khóa hoặc trả phí.</p><button type="button" class="alt" id="check">Thu thập nội dung truyện</button><div class="status" id="urlstatus" aria-live="polite"></div></section>
