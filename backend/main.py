@@ -325,10 +325,10 @@ async def inkitt_info(client, story_url):
         summary=summary.get("text") or summary.get("content") or ""
     if isinstance(summary,str):
         summary_soup=BeautifulSoup(summary,"html.parser")
-        for br in summary_soup.select("br"):br.replace_with("\\n")
-        for p in summary_soup.select("p"):p.append("\\n\\n")
+        for br in summary_soup.select("br"):br.replace_with("\n")
+        for p in summary_soup.select("p"):p.append("\n\n")
         summary=summary_soup.get_text("",strip=False)
-        summary=re.sub(r"\\n{3,}","\\n\\n",summary).strip()
+        summary=re.sub(r"\n{3,}","\n\n",summary).strip()
     else:
         summary=""
     raw_genres=data.get("genres") or data.get("categories") or []
