@@ -21,7 +21,7 @@ button.alt{background:#3a2d4c;box-shadow:none}button:hover{filter:brightness(1.1
 <section class="card"><h2>01 · Đường dẫn truyện</h2><label for="source">Nguồn truyện</label><select id="source"><option value="auto">Tự nhận diện theo link</option><option value="truyenfull.live">Truyenfull.live</option><option value="wikicv.org">Wikicv.org</option><option value="truyenmo.xyz">Truyenmo.xyz</option><option value="docln.net">Docln.net</option><option value="wattpad.com">Wattpad.com</option><option value="wordpress.com">WordPress.com</option></select><label for="url">Link trang truyện</label><input id="url" type="url" placeholder="https://trang-truyen.example/truyen/..."><p class="hint">Đọc chương công khai qua backend Render. Chỉ hỗ trợ các nguồn được cấu hình; không hỗ trợ chương khóa hoặc trả phí.</p><button type="button" class="alt" id="check">Thu thập nội dung truyện</button><div class="status" id="urlstatus" aria-live="polite"></div></section>
 <section class="card"><h2>Thông tin trang truyện</h2><div id="storymeta" class="hint">Ảnh bìa, mô tả, thể loại và tác giả sẽ được tự động lấy từ link truyện.</div></section>
 <section class="card"><h2>02 · Chọn định dạng</h2><div class="formats"><label><input type="radio" name="format" value="docx" checked>Word (.docx)</label><label><input type="radio" name="format" value="epub">EPUB (.epub)</label><label><input type="radio" name="format" value="pdf">PDF (.pdf)</label></div></section>
-<section class="card"><h2>03 · Thông tin truyện</h2><div class="cols"><div><label for="title">Tên truyện</label><input id="title" value="Truyện mẫu"></div><div><label for="author">Tác giả</label><input id="author" placeholder="Không bắt buộc"></div></div><div class="cols"><div><label for="start">Từ chương</label><input id="start" type="number" min="1" value="1"></div><div><label for="end">Đến chương</label><input id="end" type="number" min="1" value="2"></div></div><p class="hint" id="chapterinfo">Chỉ cần dán link trang truyện, hệ thống sẽ tự tìm chương. Có thể chọn phạm vi sau khi quét.</p><label><input id="images" type="checkbox" style="width:auto"> Tải kèm ảnh bìa và hình ảnh trong chương (nếu có)</label><button type="button" class="alt" id="fetchchapters">Tải nội dung các chương đã chọn</button></section>
+<section class="card"><h2>03 · Thông tin truyện</h2><div class="cols"><div><label for="title">Tên truyện</label><input id="title" value="Truyện mẫu"></div><div><label for="author">Tác giả</label><input id="author" placeholder="Không bắt buộc"></div></div><div class="cols"><div><label for="start">Từ chương</label><input id="start" type="number" min="1" value="1"></div><div><label for="end">Đến chương</label><input id="end" type="number" min="1" value="2"></div></div><p class="hint" id="chapterinfo">Chỉ cần dán link trang truyện, hệ thống sẽ tự tìm chương. Có thể chọn phạm vi sau khi quét.</p><button type="button" class="alt" id="fetchchapters">Tải nội dung các chương đã chọn</button></section>
 <section class="card"><h2>04 · Nội dung truyện</h2><textarea id="content" placeholder="Nội dung chương sau khi thu thập sẽ xuất hiện ở đây..."></textarea><p class="hint">Chỉ sử dụng nội dung bạn có quyền sao chép và xuất bản.</p><button type="button" class="alt" id="show">Xem trước</button> <button type="button" id="download">Tạo file ↓</button><div class="status" id="status" aria-live="polite"></div><div class="preview" id="preview"></div></section></main><footer>Reedtt · GitHub Pages + Render · Chỉ xử lý nội dung công khai mà bạn có quyền sử dụng</footer>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
@@ -72,7 +72,7 @@ async function loadChapters(){
  if(!discovered.length){status.textContent='Hãy tìm danh sách chương trước.';return}
  if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>discovered.length){status.textContent='Phạm vi chương không hợp lệ.';return}
  activeDownload=true;btn.disabled=true;
- const url=$('url').value.trim(),include_images=$('images').checked;
+ const url=$('url').value.trim(),include_images=true;
  const previous=new Map(downloaded.map(c=>[c.url,c]));
  downloaded=[];
  const total=end-start+1;
@@ -147,10 +147,10 @@ async function imageBytes(url){
  if(blob.type==='image/webp'){try{const bmp=await createImageBitmap(blob),canvas=document.createElement('canvas');canvas.width=bmp.width;canvas.height=bmp.height;canvas.getContext('2d').drawImage(bmp,0,0);blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));bmp.close()}catch{return null}}
  return {bytes:new Uint8Array(await blob.arrayBuffer()),mime:blob.type,ext:blob.type==='image/png'?'png':'jpg'};
 }
-async function coverBytes(){return $('images').checked?await imageBytes(storyMeta.cover):null}
+async function coverBytes(){return await imageBytes(storyMeta.cover)}
 async function chapterImages(){
  const result=[];
- if(!$('images').checked)return result;
+
  for(let i=0;i<downloaded.length;i++){
   for(const url of (downloaded[i].images||[]).slice(0,30)){
    const data=await imageBytes(url);
