@@ -2,6 +2,8 @@ import os
 import re
 from urllib.parse import urlparse, urljoin, urlunparse
 import asyncio
+import ipaddress
+import socket
 import httpx
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, HTTPException
@@ -74,6 +76,19 @@ def normalized_url(base, href):
         return urlunparse((u.scheme,u.netloc,u.path,"",u.query,""))
     except ValueError:
         return None
+
+def image_url(base,href):
+    try:
+        u=urlparse(urljoin(base,href))
+        if u.scheme!="https" or not u.hostname or u.port not in (None,443) or u.username or u.password:return None
+        return urlunparse((u.scheme,u.netloc,u.path,"",u.query,""))
+    except ValueError:return None
+
+async def public_image_host(host):
+    try:
+        infos=await asyncio.get_running_loop().getaddrinfo(host,443,type=socket.SOCK_STREAM)
+        return bool(infos) and all(ipaddress.ip_address(info[4][0]).is_global for info in infos)
+    except (OSError,ValueError):return False
 
 async def get_page(client, url):
     r=await client.get(url)
@@ -162,10 +177,10 @@ async def discover(req:ReadRequest):
             description=re.sub(r"\s*(?:Xem thêm|Thu gọn|Đọc thêm|Show more|Read more)\s*$","",description,flags=re.I).strip()
             cover_tag=soup.select_one(".book-cover img,.book img,.story-cover img,.cover img,.info img,meta[property='og:image'],meta[name='twitter:image']")
             cover_url=(cover_tag.get("data-src") or cover_tag.get("data-original") or cover_tag.get("data-lazy-src") or cover_tag.get("src") or cover_tag.get("content") or "") if cover_tag else ""
-            cover=normalized_url(base,cover_url)
+            cover=image_url(base,cover_url)
             if not cover:
                 raw=meta("meta[property='og:image']") or meta("meta[name='twitter:image']")
-                cover=normalized_url(base,raw) if raw else None
+                cover=image_url(base,raw) if raw else None
             categories=[a.get_text(" ",strip=True) for a in soup.select(".tag a,.tags a,.genres a,.genre a,.book-tags a,[itemprop=genre] a") if a.get_text(" ",strip=True)]
             if not categories:
                 raw=label("[itemprop=genre],.genres,.genre,.book-tags")
@@ -200,7 +215,7 @@ async def batch(req:BatchRequest):
                 try:
                     soup,base=await get_page(client,item["url"])
                     content,images=chapter_body(soup)
-                    resolved=[normalized_url(base,x) for x in images] if req.include_images else []
+                    resolved=[image_url(base,x) for x in images] if req.include_images else []
                     return {"title":item["title"],"url":item["url"],"content":content,"images":[x for x in resolved if x]}
                 except (httpx.HTTPError,HTTPException):
                     return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"Không tải được chương"}
@@ -209,16 +224,17 @@ async def batch(req:BatchRequest):
 
 @app.post("/image")
 async def image(req:ReadRequest):
-    u=urlparse(req.url.strip())
-    if u.scheme!="https" or not u.hostname or not allowed(u.hostname.lower()) or u.port not in (None,443):
-        raise HTTPException(400,"Nguồn ảnh không được hỗ trợ.")
+    url=image_url(req.url,req.url)
+    if not url:raise HTTPException(400,"URL ảnh HTTPS không hợp lệ.")
+    u=urlparse(url)
+    if not await public_image_host(u.hostname):raise HTTPException(400,"Máy chủ ảnh không an toàn hoặc không truy cập được.")
     try:
-        async with httpx.AsyncClient(timeout=18,follow_redirects=False) as client:
-            r=await client.get(req.url,headers={"User-Agent":"Mozilla/5.0","Referer":f"https://{u.hostname}/"})
+        async with httpx.AsyncClient(timeout=22,follow_redirects=False,trust_env=False) as client:
+            r=await client.get(url,headers={"User-Agent":"Mozilla/5.0","Referer":f"https://{u.hostname}/","Accept":"image/avif,image/webp,image/png,image/jpeg,*/*"})
             r.raise_for_status()
             mime=r.headers.get("content-type","").split(";")[0].lower()
             if mime not in ("image/jpeg","image/png","image/webp") or len(r.content)>5_000_000:
-                raise HTTPException(415,"Ảnh không được hỗ trợ hoặc quá lớn.")
+                raise HTTPException(415,"Ảnh không hỗ trợ hoặc quá lớn.")
             return Response(r.content,media_type=mime,headers={"Cache-Control":"public, max-age=3600"})
     except httpx.HTTPError as exc:
-        raise HTTPException(502,"Không tải được ảnh bìa.") from exc
+        raise HTTPException(502,"Không tải được ảnh từ máy chủ nguồn.") from exc
