@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Novel Box - Đọc chương trên trình duyệt",
-  "version": "1.0.0",
-  "description": "Cho phép Novel Box đọc các chương công khai trên Gia Tộc Vượng Tài từ trình duyệt của bạn.",
-  "permissions": [],
+  "version": "1.1.0",
+  "description": "Đọc danh sách và văn bản chương công khai đã hiển thị trên Gia Tộc Vượng Tài.",
+  "permissions": [
+    "tabs",
+    "scripting"
+  ],
   "host_permissions": [
     "https://giatocvuongtai.com/*",
     "https://*.giatocvuongtai.com/*"
