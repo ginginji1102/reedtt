@@ -90,6 +90,7 @@ async function coverBytes(){
  try{const r=await fetch(storyMeta.cover,{mode:'cors'});if(r.ok)blob=await r.blob()}catch{}
  if(!blob){try{const r=await fetch(API+'/image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:storyMeta.cover})});if(r.ok)blob=await r.blob()}catch{}}
  if(!blob||blob.size>5000000||!/^image\/(png|jpeg|webp)$/.test(blob.type))return null;
+ if(blob.type==="image/webp"){try{const bmp=await createImageBitmap(blob);const canvas=document.createElement("canvas");canvas.width=bmp.width;canvas.height=bmp.height;const ctx=canvas.getContext("2d");ctx.drawImage(bmp,0,0);blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/png"));bmp.close()}catch{return null}}
  const bytes=new Uint8Array(await blob.arrayBuffer());
  return {bytes,mime:blob.type,ext:blob.type==='image/png'?'png':blob.type==='image/webp'?'webp':'jpg'};
 }
