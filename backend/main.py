@@ -285,6 +285,59 @@ def chapter_body(soup, source_url=''):
         if not content:return '',[]
     return content[:300000],images[:50]
 
+
+def inkitt_html_metadata(soup, story_url):
+    import json
+    match=re.search(r"/stories/(\d+)",urlparse(story_url).path)
+    if not match:
+        raise HTTPException(400,"URL Inkitt không hợp lệ.")
+    story_id=match.group(1)
+    base=f"https://www.inkitt.com/stories/{story_id}"
+    book={}
+    for node in soup.select('script[type="application/ld+json"]'):
+        try:
+            item=json.loads(node.string or node.get_text())
+            for obj in (item if isinstance(item,list) else [item]):
+                if isinstance(obj,dict) and obj.get("@type")=="Book":
+                    book=obj
+                    break
+        except (ValueError,TypeError):
+            continue
+    chapter_data=[]
+    for node in soup.select('script[data-component-name="StoryChaptersList"]'):
+        try:
+            item=json.loads(node.string or node.get_text())
+            if isinstance(item.get("chapters"),list):
+                chapter_data=item["chapters"]
+                break
+        except (ValueError,TypeError,AttributeError):
+            continue
+    chapters=[]
+    for ch in chapter_data[:1000]:
+        if not isinstance(ch,dict):
+            continue
+        number=ch.get("number")
+        if not str(number).isdigit() or int(number)<1:
+            continue
+        path=ch.get("path") or f"/stories/{story_id}/chapters/{number}"
+        link=normalized_url(base,path)
+        if link and re.fullmatch(r"/stories/"+story_id+r"/chapters/\d+",urlparse(link).path):
+            chapters.append({"title":str(ch.get("name") or f"Chương {number}")[:180],"url":link})
+    author=book.get("author") or {}
+    image=book.get("image") or {}
+    summary_node=soup.select_one(".story-summary")
+    summary=summary_node.get_text("\n",strip=True) if summary_node else book.get("description") or ""
+    cover=image.get("url","") if isinstance(image,dict) else image
+    if not cover:
+        image_node=soup.select_one('meta[property="og:image"]')
+        cover=image_node.get("content","") if image_node else ""
+    title=book.get("name") or ""
+    if not title:
+        title_node=soup.select_one('meta[property="og:title"]')
+        title=title_node.get("content","") if title_node else ""
+    genres=book.get("genre") or []
+    return {"title":str(title)[:200],"author":str(author.get("name","") if isinstance(author,dict) else author)[:120],"description":str(summary)[:15000],"cover":image_url(base,cover) if isinstance(cover,str) and cover else None,"categories":genres if isinstance(genres,list) else [genres],"chapters":chapters,"count":len(chapters),"truncated":len(chapter_data)>1000}
+
 async def inkitt_info(client, story_url):
     """Use Inkitt's public story metadata endpoint, as lightnovel-crawler does."""
     match=re.search(r"/stories/(\d+)",urlparse(story_url).path)
@@ -356,6 +409,15 @@ async def discover(req:ReadRequest):
         raise HTTPException(400,"Nguồn chưa được hỗ trợ hoặc URL không hợp lệ.")
     if (u.hostname or "").lower().endswith("inkitt.com") and re.search(r"/stories/\d+",u.path):
         async with httpx.AsyncClient(timeout=20,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept-Language":"en-US,en;q=0.9"}) as client:
+            try:
+                match=re.search(r"/stories/(\d+)",u.path)
+                page_url=f"https://www.inkitt.com/stories/{match.group(1)}/chapters/1"
+                soup,final_url=await get_page(client,page_url)
+                parsed=inkitt_html_metadata(soup,final_url)
+                if parsed["chapters"]:
+                    return parsed
+            except (HTTPException,httpx.HTTPError,ValueError,AttributeError):
+                pass
             return await inkitt_info(client,req.url)
     try:
         async with httpx.AsyncClient(timeout=20,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"en-US,en;q=0.9"}) as client:
