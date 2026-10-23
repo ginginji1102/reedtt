@@ -84,8 +84,8 @@ async function loadStory(){
  try{
   let data;
   if(u.hostname==='giatocvuongtai.com'||u.hostname.endsWith('.giatocvuongtai.com')){
-   status.textContent='Đang thử đọc trực tiếp bằng trình duyệt (không qua Render)...';
-   try{data=await browserDiscover(u.href)}
+   status.textContent='Đang mở trang bằng Playwright trên Render...';
+   try{data=await api('/render-discover',{url:u.href})}
    catch(e){
     if(e instanceof TypeError||/Failed to fetch|NetworkError|Load failed/i.test(e.message||''))throw Error('Trình duyệt không được phép đọc trực tiếp nguồn này (có thể do CORS). Cần tiện ích trình duyệt có quyền truy cập trang nguồn. Không thể giải quyết bằng Render.');
     throw e;
@@ -134,7 +134,7 @@ async function loadChapters(){
      status.textContent='Đang thu thập chương '+from+'–'+to+' / '+end+' · '+downloaded.length+'/'+total+' chương'+(attempt>1?' · thử lại '+attempt+'/5':'');
      try{
       const data=(new URL(url).hostname.endsWith('giatocvuongtai.com'))
-       ? {chapters:await Promise.all(items.map(async item=>{try{return {...item,content:await browserChapter(item.url),images:[]}}catch(e){return {...item,content:'',images:[],error:e.message}}}))}
+       ? await api('/render-batch',{url,start:from,end:to,chapters:items,include_images})
        : await api('/batch',{url,start:from,end:to,chapters:items,include_images});
       if(!Array.isArray(data.chapters)||data.chapters.length!==items.length)throw Error('Phản hồi chưa đầy đủ');
       result=data.chapters;break;
