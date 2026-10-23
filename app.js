@@ -53,15 +53,20 @@ async function browserDiscover(url){
   if(!/^(?:chương|chuong|chapter)\\s*\\d+/i.test(label)||seen.has(href.href))continue;
   seen.add(href.href);chapters.push({title:label,url:href.href});
  }
- if(!chapters.length)throw Error('Trình duyệt đã đọc HTML nhưng chưa thấy liên kết chương trong mã trang.');
+ if(!chapters.length){
+  const direct=new URL(url);
+  if(direct.pathname.replace(/\\/$/,'')==='/reader'&&direct.searchParams.has('storyId')&&direct.searchParams.has('chapter')){
+   chapters.push({title:doc.querySelector('h1,h2,.chapter-title')?.textContent?.trim()||'Chương đã chọn',url:direct.href});
+  }else throw Error('Trình duyệt đã đọc HTML nhưng chưa thấy liên kết chương trong mã trang.');
+ }
  return {title:doc.querySelector("meta[property='og:title']")?.content||doc.querySelector('h1')?.textContent?.trim()||'',chapters,count:chapters.length};
 }
 async function browserChapter(url){
  const response=await fetch(url,{credentials:'omit',signal:AbortSignal.timeout(20000)});
  if(!response.ok)throw Error('HTTP '+response.status);
  const doc=new DOMParser().parseFromString(await response.text(),'text/html');
- const node=doc.querySelector('.reader-content,.chapter-content,#chapter-content,article,[data-chapter-content]');
- if(!node)throw Error('Không tìm thấy nội dung chương trong HTML trình duyệt nhận được.');
+ const node=doc.querySelector('.reader-content,.chapter-content,#chapter-content,article,[data-chapter-content],.prose,#reader-content,.reading-content');
+ if(!node)throw Error('Trang chương không chứa văn bản trong HTML nhận được; có thể nội dung chỉ xuất hiện sau khi JavaScript chạy.');
  node.querySelectorAll('script,style,nav,button').forEach(x=>x.remove());
  const content=cleanText(node);
  if(!content)throw Error('Nội dung chương trống.');
