@@ -196,6 +196,16 @@ html[data-theme="day"] .status{background:#e5f3ff;color:#17466b;border:1px solid
 html[data-theme="day"] .theme-switch{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.55)}
 html[data-theme="day"] .theme-switch button{color:#fff}
 html[data-theme="day"] .theme-switch button[aria-pressed="true"]{background:#fff;color:#1e6396}
+
+/* Day mode uses its own illustrated sky artwork, not a recolored Night image */
+html[data-theme="day"]{background:#eaf7ff}
+html[data-theme="day"] body{background:#eaf7ff;position:relative;isolation:isolate}
+html[data-theme="day"] body::before{
+ content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+ background:url("day-sky.jpg?v=day-artwork-1") center top / cover no-repeat;
+ filter:none;opacity:1;
+}
+html[data-theme="day"] .card{background:rgba(255,255,255,.985);border-color:#8db7d5;box-shadow:0 12px 36px rgba(17,71,112,.25)}
 </style></head>
 <body><header><img src="novel-box-logo.svg?v=original-eyes-3" alt="Novel Box" style="width:44px;height:44px;object-fit:contain;vertical-align:middle;margin-right:10px"><b>Novel Box</b><div class="theme-switch" role="group" aria-label="Chế độ giao diện"><button type="button" id="theme-day" aria-pressed="false">☀ Day</button><button type="button" id="theme-night" aria-pressed="true">☾ Night</button></div></header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Dán một link truyện · Tìm chương tự động · Xuất Word, EPUB</p>
 <section class="card"><h2>01 · Đường dẫn truyện</h2><label for="source">Nguồn truyện</label><select id="source"><option value="auto">Tự nhận diện theo link</option><option value="truyenfull.live">Truyenfull.live</option><option value="wikicv.org">Wikicv.org</option><option value="truyenmo.xyz">Truyenmo.xyz</option><option value="docln.net">Docln.net</option><option value="wattpad.com">Wattpad.com</option><option value="wordpress.com">WordPress.com</option></select><label for="url">Link trang truyện</label><input id="url" type="url" placeholder="https://trang-truyen.example/truyen/..."><p class="hint">Đọc chương công khai qua backend Render. Chỉ hỗ trợ các nguồn được cấu hình; không hỗ trợ chương khóa hoặc trả phí.</p><button type="button" class="alt" id="check">Thu thập nội dung truyện</button><div class="status" id="urlstatus" aria-live="polite"></div></section>
