@@ -21,6 +21,7 @@ class BatchRequest(BaseModel):
     start: int = 1
     end: int = 20
     include_images: bool = False
+    chapters: list[dict] | None = None
 
 def allowed(host):
     return any(host == d or host.endswith("." + d) for d in ALLOWED)
@@ -126,18 +127,32 @@ async def discover(req:ReadRequest):
             found={x["url"]:x for x in chapter_links(soup,base,story_path)}
             pages=page_links(soup,base,story_path)
             # Bounded pagination discovery to avoid unlimited crawling.
-            for page in pages[:12]:
+            async def listing(page):
                 try:
                     sub,_=await get_page(client,page)
-                    for x in chapter_links(sub,page,story_path):found[x["url"]]=x
-                except (httpx.HTTPError,HTTPException):pass
-                await asyncio.sleep(.15)
+                    return chapter_links(sub,page,story_path)
+                except (httpx.HTTPError,HTTPException):return []
+            for group in await asyncio.gather(*(listing(p) for p in pages[:12])):
+                for x in group:found[x["url"]]=x
+            def meta(selector):
+                t=soup.select_one(selector)
+                return (t.get("content") or "").strip() if t else ""
+            def label(selector):
+                t=soup.select_one(selector)
+                return t.get_text(" ",strip=True) if t else ""
+            description=label(".desc-text,.book-desc,.story-description,.description,.desc,.intro,.summary,[itemprop=description]") or meta("meta[name=description]") or meta("meta[property='og:description']")
+            cover_tag=soup.select_one(".book img,.book-cover img,.info img,.book-info img,.story-cover img,.cover img,meta[property='og:image']")
+            cover=normalized_url(base,(cover_tag.get("data-src") or cover_tag.get("src") or cover_tag.get("content") or "")) if cover_tag else None
+            categories=[a.get_text(" ",strip=True) for a in soup.select(".tag a,.tags a,.genres a,.genre a,.book-tags a,[itemprop=genre] a") if a.get_text(" ",strip=True)]
+            if not categories:
+                raw=label("[itemprop=genre],.genres,.genre,.book-tags")
+                categories=[x.strip() for x in raw.split(",") if x.strip()]
             chapters=list(found.values())
             def order(x):
                 m=re.search(r"(?:chương|chuong|chapter)[^0-9]{0,12}(\d+)",x["title"]+" "+x["url"],re.I)
                 return int(m.group(1)) if m else 10**9
             chapters.sort(key=order)
-            return {"title":title[:200],"author":author.get_text(" ",strip=True)[:120] if author else "","chapters":chapters[:1000],"count":len(chapters),"truncated":len(pages)>12 or len(chapters)>1000}
+            return {"title":title[:200],"author":author.get_text(" ",strip=True)[:120] if author else "","description":description[:15000],"cover":cover,"categories":categories[:30],"chapters":chapters[:1000],"count":len(chapters),"truncated":len(pages)>12 or len(chapters)>1000}
     except httpx.HTTPError as exc:
         raise HTTPException(502,"Nguồn không phản hồi hoặc từ chối truy cập công khai.") from exc
 
@@ -145,19 +160,26 @@ async def discover(req:ReadRequest):
 async def batch(req:BatchRequest):
     if req.start<1 or req.end<req.start or req.end-req.start>=20:
         raise HTTPException(400,"Mỗi yêu cầu kỹ thuật hỗ trợ tối đa 20 chương; website tự chia đợt.")
-    discovery=await discover(ReadRequest(url=req.url))
-    chapters=discovery["chapters"]
-    if not chapters:raise HTTPException(404,"Chưa tìm thấy danh sách chương công khai từ trang truyện.")
-    chosen=chapters[req.start-1:req.end]
-    result=[]
-    async with httpx.AsyncClient(timeout=20,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (compatible; ReedttReader/1.1)"}) as client:
+    discovery=None
+    if req.chapters is not None:
+        chosen=req.chapters
+        if len(chosen)>20:raise HTTPException(400,"Mỗi đợt tối đa 20 chương.")
         for item in chosen:
-            try:
-                soup,base=await get_page(client,item["url"])
-                content,images=chapter_body(soup)
-                resolved=[normalized_url(base,x) for x in images] if req.include_images else []
-                result.append({"title":item["title"],"url":item["url"],"content":content,"images":[x for x in resolved if x]})
-            except (httpx.HTTPError,HTTPException):
-                result.append({"title":item["title"],"url":item["url"],"content":"","images":[],"error":"Không tải được chương"})
-            await asyncio.sleep(.25)
-    return {"title":discovery["title"],"author":discovery["author"],"chapters":result,"count":len(result)}
+            if not normalized_url(req.url,item.get("url","")):raise HTTPException(400,"URL chương không hợp lệ.")
+    else:
+        discovery=await discover(ReadRequest(url=req.url))
+        chosen=discovery["chapters"][req.start-1:req.end]
+    if not chosen:raise HTTPException(404,"Không tìm thấy chương.")
+    semaphore=asyncio.Semaphore(5)
+    async with httpx.AsyncClient(timeout=20,follow_redirects=False,limits=httpx.Limits(max_connections=6),headers={"User-Agent":"Mozilla/5.0 (compatible; ReedttReader/1.1)"}) as client:
+        async def fetch_one(item):
+            async with semaphore:
+                try:
+                    soup,base=await get_page(client,item["url"])
+                    content,images=chapter_body(soup)
+                    resolved=[normalized_url(base,x) for x in images] if req.include_images else []
+                    return {"title":item["title"],"url":item["url"],"content":content,"images":[x for x in resolved if x]}
+                except (httpx.HTTPError,HTTPException):
+                    return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"Không tải được chương"}
+        result=await asyncio.gather(*(fetch_one(item) for item in chosen))
+    return {"title":discovery["title"] if discovery else "","author":discovery["author"] if discovery else "","chapters":result,"count":len(result)}
