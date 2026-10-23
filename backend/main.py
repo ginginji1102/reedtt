@@ -122,6 +122,23 @@ def chapter_links(soup,base,story_path):
         found[href]={"title":label[:180] or href.rsplit("/",1)[-1],"url":href}
     return list(found.values())
 
+async def wattpad_story_metadata(client,url):
+    match=re.search(r'/story/(\d+)',urlparse(url).path)
+    if not match:return None
+    try:
+        r=await client.get('https://www.wattpad.com/api/v3/stories/'+match.group(1),params={'fields':'id,title,cover,numParts,parts(id,title,url)'},headers={'Accept':'application/json'})
+        if r.status_code!=200:return None
+        data=r.json()
+        if not isinstance(data,dict) or not isinstance(data.get('parts'),list):return None
+        parts=[]
+        for part in data['parts']:
+            if not isinstance(part,dict):continue
+            link=normalized_url(url,part.get('url') or ('https://www.wattpad.com/'+str(part.get('id',''))))
+            if link and re.fullmatch(r'/\d{6,}(?:-[^/]*)?/?',urlparse(link).path):
+                parts.append({'title':str(part.get('title') or 'Chương '+str(len(parts)+1))[:180],'url':link})
+        return {'parts':parts,'cover':data.get('cover'),'numParts':data.get('numParts')}
+    except (httpx.HTTPError,ValueError,TypeError):return None
+
 def page_links(soup,base,story_path):
     result=[]
     for a in soup.select(".pagination a[href],.pagination-container a[href],a[href*='page='],a[href*='/trang-']"):
@@ -194,6 +211,9 @@ async def discover(req:ReadRequest):
             author=soup.select_one("[itemprop='author'],.author")
             story_path=urlparse(base).path
             found={x["url"]:x for x in chapter_links(soup,base,story_path)}
+            wattpad_data=await wattpad_story_metadata(client,base) if (urlparse(base).hostname or '').lower().endswith('wattpad.com') else None
+            if wattpad_data and wattpad_data['parts']:
+                found={part['url']:part for part in wattpad_data['parts']}
             pages=page_links(soup,base,story_path)
             # Bounded pagination discovery to avoid unlimited crawling.
             async def listing(page):
@@ -228,7 +248,7 @@ async def discover(req:ReadRequest):
             description=re.sub(r"\s*(?:Xem thêm|Thu gọn|Đọc thêm|Show more|Read more)\s*$","",description,flags=re.I).strip()
             cover_tag=soup.select_one(".book-cover img,.book img,.story-cover img,.cover img,.info img,meta[property='og:image'],meta[name='twitter:image']")
             cover_url=(cover_tag.get("data-src") or cover_tag.get("data-original") or cover_tag.get("data-lazy-src") or cover_tag.get("src") or cover_tag.get("content") or "") if cover_tag else ""
-            cover=image_url(base,meta("meta[property='og:image']") or meta("meta[name='twitter:image']") or cover_url)
+            cover=image_url(base,(wattpad_data or {}).get('cover') or meta("meta[property='og:image']") or meta("meta[name='twitter:image']") or cover_url)
             if not cover:
                 raw=meta("meta[property='og:image']") or meta("meta[name='twitter:image']")
                 cover=image_url(base,raw) if raw else None
@@ -240,7 +260,7 @@ async def discover(req:ReadRequest):
             def order(x):
                 m=re.search(r"(?:chương|chuong|chapter)[^0-9]{0,12}(\d+)",x["title"]+" "+x["url"],re.I)
                 return int(m.group(1)) if m else 10**9
-            chapters.sort(key=order)
+            if not (wattpad_data and wattpad_data['parts']):chapters.sort(key=order)
             return {"title":title[:200],"author":author.get_text(" ",strip=True)[:120] if author else "","description":description[:15000],"cover":cover,"categories":categories[:30],"chapters":chapters[:1000],"count":len(chapters),"truncated":len(pages)>12 or len(chapters)>1000}
     except httpx.HTTPError as exc:
         raise HTTPException(502,"Nguồn không phản hồi hoặc từ chối truy cập công khai.") from exc
