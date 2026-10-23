@@ -71,6 +71,10 @@ async def read(req: ReadRequest):
 def normalized_url(base, href):
     try:
         u = urlparse(urljoin(base, href))
+        # Old WordPress indexes often contain http:// chapter links from 2012.
+        # Upgrade those links to HTTPS before validating; never fetch plaintext HTTP.
+        if u.scheme=="http" and u.hostname and u.hostname.lower().endswith(".wordpress.com") and u.port in (None,80):
+            u=u._replace(scheme="https",netloc=u.hostname)
         if u.scheme != "https" or u.port not in (None,443) or not u.hostname or not allowed(u.hostname.lower()):
             return None
         return urlunparse((u.scheme,u.netloc,u.path,"",u.query,""))
@@ -114,7 +118,7 @@ def chapter_links(soup,base,story_path):
         selectors+=", .chapters-list a[href],a[href*='/chapters/'],a[href*='/chapter/']"
     if host.endswith("wordpress.com"):
         # WordPress indexes link chapters by visible title; URL slugs are arbitrary.
-        article=soup.select_one(".entry-content,.post-content,.entry-content-wrapper,article .content,[itemprop='articleBody'],article")
+        article=soup.select_one(".entry-content,.post-content,.entry-content-wrapper,.post-body,.post-entry,.post,article .content,[itemprop='articleBody'],article")
         if article:
             chapter_label=re.compile(r"^(?:chương|chuong|chapter|chap)\s*[:.\-–]?\s*0*\d+\b",re.I)
             extra_label=re.compile(r"(?:phiên ngoại|phien ngoai|ngoại truyện|ngoai truyen|extra|ngoại phiên)",re.I)
@@ -125,6 +129,16 @@ def chapter_links(soup,base,story_path):
                 href=normalized_url(base,a.get("href",""))
                 if not href or urlparse(href).path.rstrip("/")==story_path.rstrip("/"):continue
                 found[href]={"title":label[:180],"url":href}
+        if not found:
+            # Some older WordPress themes wrap the article in nonstandard markup.
+            # Fallback still requires chapter-like anchor labels, not URL slugs.
+            for a in soup.select("a[href]"):
+                if a.find_parent(["nav","aside","footer"]) or a.find_parent(id=re.compile(r"comment|respond|sidebar",re.I)) or a.find_parent(class_=re.compile(r"comment|sidebar|related|widget|share|social",re.I)):continue
+                label=a.get_text(" ",strip=True)
+                if not re.search(r"^(?:chương|chuong|chapter|chap)\\s*[:.\\-–]?\\s*0*\\d+\\b",label,re.I):continue
+                href=normalized_url(base,a.get("href",""))
+                if href and urlparse(href).path.rstrip("/")!=story_path.rstrip("/"):
+                    found[href]={"title":label[:180],"url":href}
         return list(found.values())
     for a in soup.select(selectors):
         href=normalized_url(base,a.get("href",""))
