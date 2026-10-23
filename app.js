@@ -116,7 +116,7 @@ async function loadChapters(){
    $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||'[Không tải được nội dung]')).join('\n\n\n');
   }
   const missing=downloaded.filter(x=>!x.content).length;
-  status.textContent='Hoàn thành '+(total-missing)+'/'+total+' chương.'+(missing?' Còn '+missing+' chương nguồn chưa trả nội dung; bấm Tải nội dung để thử lại.':' Sẵn sàng xuất file.');
+  const reasons=[...new Set(downloaded.filter(x=>!x.content).map(x=>x.error||'Không rõ nguyên nhân'))].slice(0,3);status.textContent='Hoàn thành '+(total-missing)+'/'+total+' chương.'+(missing?' Lỗi: '+reasons.join(' · ')+'. Bấm Tải nội dung để thử lại.':' Sẵn sàng xuất file.');
  }finally{activeDownload=false;btn.disabled=false}
 }
 $('fetchchapters').onclick=loadChapters;
