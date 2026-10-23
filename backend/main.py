@@ -372,7 +372,7 @@ async def discover(req:ReadRequest):
                 cover_url=(cover_tag.get("data-src") or cover_tag.get("data-original") or cover_tag.get("data-lazy-src") or cover_tag.get("src") or cover_tag.get("content") or "") if cover_tag else ""
                 inkitt_cover=soup.select_one("div.story-horizontal-cover__front") if host.endswith("inkitt.com") else None
                 cover_css=inkitt_cover.get("style","") if inkitt_cover else ""
-                cover_match=re.search(r"url\\(\\s*['\\\"]?([^'\\\"\\)]+)",cover_css,re.I)
+                cover_match=re.search(r"url\(\s*['\"]?([^'\"\)]+)",cover_css,re.I)
                 cover=image_url(base,(wattpad_data or {}).get('cover') or (cover_match.group(1) if cover_match else "") or meta("meta[property='og:image']") or meta("meta[name='twitter:image']") or cover_url)
                 if not cover:
                     raw=meta("meta[property='og:image']") or meta("meta[name='twitter:image']")
