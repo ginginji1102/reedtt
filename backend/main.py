@@ -129,6 +129,30 @@ def chapter_links(soup,base,story_path):
                 href=normalized_url(base,a.get("href",""))
                 if not href or urlparse(href).path.rstrip("/")==story_path.rstrip("/"):continue
                 found[href]={"title":label[:180],"url":href}
+        if article:
+            # Titles under the 'Phiên Ngoại' heading are chapter links even when
+            # the anchor text contains no chapter number or 'phiên ngoại' prefix.
+            in_extras=False
+            for node in article.select("h1,h2,h3,h4,h5,h6,a[href]"):
+                if node.name in ("h1","h2","h3","h4","h5","h6"):
+                    heading=node.get_text(" ",strip=True)
+                    if re.search(r"^(?:phiên ngoại|phien ngoai|ngoại truyện|ngoai truyen)\b",heading,re.I):
+                        in_extras=True
+                    elif in_extras:
+                        in_extras=False
+                    continue
+                if not in_extras:continue
+                label=node.get_text(" ",strip=True)
+                href=normalized_url(base,node.get("href",""))
+                if label and href and urlparse(href).path.rstrip("/")!=story_path.rstrip("/"):
+                    found[href]={"title":"Phiên ngoại: "+label[:155],"url":href}
+            # Fallback for headings represented by styled paragraphs in older themes.
+            for node in article.select("a[href]"):
+                href=normalized_url(base,node.get("href",""))
+                if not href or href in found:continue
+                if re.search(r"/thien-huu-pn[0-9]+",urlparse(href).path,re.I):
+                    label=node.get_text(" ",strip=True)
+                    if label:found[href]={"title":"Phiên ngoại: "+label[:155],"url":href}
         if not found:
             # Some older WordPress themes wrap the article in nonstandard markup.
             # Fallback still requires chapter-like anchor labels, not URL slugs.
