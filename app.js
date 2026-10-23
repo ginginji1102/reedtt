@@ -27,7 +27,13 @@ let downloaded=[];
 let storyMeta={};
 $('url').addEventListener('input',()=>{try{const host=new URL($('url').value).hostname.replace(/^www\./,'');$('source').value=[...$('source').options].some(o=>o.value===host)?host:'auto'}catch{}});
 async function api(path,body){
- const r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(120000)});
+ let r;
+ try{
+  r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(120000)});
+ }catch(e){
+  if(e?.name==='TimeoutError'||e?.name==='AbortError')throw Error('Máy chủ xử lý truyện phản hồi quá lâu (quá 120 giây). Vui lòng thử lại sau.');
+  throw Error('Không kết nối được máy chủ xử lý truyện (Render). Hãy kiểm tra máy chủ đang chạy và cấu hình CORS; đây chưa phải lỗi đọc chương của nguồn truyện.');
+ }
  const data=await r.json().catch(()=>({}));
  if(!r.ok)throw Error(typeof data.detail==='string'?data.detail:'HTTP '+r.status);
  return data;
