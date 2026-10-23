@@ -586,8 +586,15 @@ async def discover(req:ReadRequest):
                 return int(m.group(1)) if m else 10**9
             if not (wattpad_data and wattpad_data['parts']):chapters.sort(key=order)
             return {"title":title[:200],"author":author.get_text(" ",strip=True)[:120] if author else "","description":description[:15000],"cover":cover,"categories":categories[:30],"chapters":chapters[:1000],"count":len(chapters),"truncated":len(pages)>12 or len(chapters)>1000}
+    except httpx.HTTPStatusError as exc:
+        status=exc.response.status_code
+        raise HTTPException(502,f"Máy chủ nguồn trả HTTP {status}. "+("Website có thể đang chặn truy cập từ Render." if status in (403,429,503) else "Không thể tải trang truyện.")) from exc
+    except httpx.ConnectError as exc:
+        raise HTTPException(502,"Không kết nối được tới máy chủ nguồn từ Render (lỗi DNS, TLS hoặc kết nối mạng).") from exc
+    except httpx.TimeoutException as exc:
+        raise HTTPException(504,"Máy chủ nguồn không phản hồi trong 20 giây.") from exc
     except httpx.HTTPError as exc:
-        raise HTTPException(502,"Nguồn không phản hồi hoặc từ chối truy cập công khai.") from exc
+        raise HTTPException(502,f"Không thể tải nguồn: {type(exc).__name__}.") from exc
 
 @app.post("/batch")
 async def batch(req:BatchRequest):
