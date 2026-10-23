@@ -60,7 +60,7 @@ async function loadStory(){
 const escapeXml=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const get=()=>({title:$('title').value.trim()||'Truyện mẫu',author:$('author').value.trim(),body:$('content').value});
 function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)}
-$('check').onclick=()=>{$('urlstatus').textContent=$('url').value?'Đã nhận URL. Chức năng đọc truyện từ link chưa được kết nối.':'Bạn chưa nhập đường dẫn.'};
+$('check').onclick=loadStory;
 $('show').onclick=()=>{const d=get();$('preview').style.display='block';$('preview').textContent=d.title+'\n'+(d.author?'Tác giả: '+d.author+'\n':'')+'\n'+d.body};
 $('download').onclick=async()=>{const d=get();const status=$('status');status.textContent='Đang tạo file...';try{if(!d.body.trim())throw Error('Hãy nhập nội dung trước.');const fmt=document.querySelector('input[name="format"]:checked').value;const name=(d.title.replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,55)||'truyen')+'.'+fmt;
 if(fmt==='docx'){if(!window.docx)throw Error('Không tải được thư viện Word.');const paragraphs=[new docx.Paragraph({text:d.title,heading:docx.HeadingLevel.TITLE}),new docx.Paragraph({text:d.author?'Tác giả: '+d.author:''}),...d.body.split('\n').map(t=>new docx.Paragraph({text:t}))];const doc=new docx.Document({sections:[{children:paragraphs}]});save(await docx.Packer.toBlob(doc),name)}
