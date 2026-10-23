@@ -135,7 +135,7 @@ def chapter_links(soup,base,story_path):
             for a in soup.select("a[href]"):
                 if a.find_parent(["nav","aside","footer"]) or a.find_parent(id=re.compile(r"comment|respond|sidebar",re.I)) or a.find_parent(class_=re.compile(r"comment|sidebar|related|widget|share|social",re.I)):continue
                 label=a.get_text(" ",strip=True)
-                if not re.search(r"^(?:chương|chuong|chapter|chap)\\s*[:.\\-–]?\\s*0*\\d+\\b",label,re.I):continue
+                if not re.search(r"^(?:chương|chuong|chapter|chap)\s*[:.\-–]?\s*0*\d+\b",label,re.I):continue
                 href=normalized_url(base,a.get("href",""))
                 if href and urlparse(href).path.rstrip("/")!=story_path.rstrip("/"):
                     found[href]={"title":label[:180],"url":href}
