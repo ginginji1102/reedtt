@@ -18,7 +18,7 @@
 
 
 const $=id=>document.getElementById(id);
-const supportedHosts=['truyenfull.live','wikicv.org','truyenmo.xyz','docln.net','wattpad.com','wordpress.com'];
+const supportedHosts=['truyenfull.live','wikicv.org','truyenmo.xyz','docln.net','wattpad.com','wordpress.com','navyteams.com'];
 function cleanText(node){return (node?.innerText||node?.textContent||'').replace(/\n{3,}/g,'\n\n').trim()}
 function safeUrl(value){const u=new URL(value);if(!['https:','http:'].includes(u.protocol))throw Error('Chỉ hỗ trợ đường dẫn HTTP hoặc HTTPS.');return u}
 const API='https://reedtt-reader-api.onrender.com';
