@@ -100,7 +100,7 @@ async function loadChapters(){
     }
    }
    downloaded.push(...result);
-   $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||'[Không tải được nội dung]')).join('\n\n\n');
+   $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||'[Chương tải lỗi — xem thông báo trạng thái]')).join('\n\n\n');
    status.textContent='Đã xử lý '+downloaded.length+'/'+total+' chương'+(failures?' · '+failures+' chương cần tải lại':'');
   }
   const failed=downloaded.filter(x=>!x.content);
@@ -113,7 +113,7 @@ async function loadChapters(){
      for(const chapter of data.chapters||[]){const index=downloaded.findIndex(x=>x.url===chapter.url);if(index>=0&&chapter.content)downloaded[index]=chapter}
     }catch(e){/* Keep the downloaded chapters and continue. */}
    }
-   $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||'[Không tải được nội dung]')).join('\n\n\n');
+   $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||'[Chương tải lỗi — xem thông báo trạng thái]')).join('\n\n\n');
   }
   const missing=downloaded.filter(x=>!x.content).length;
   const reasons=[...new Set(downloaded.filter(x=>!x.content).map(x=>x.error||'Không rõ nguyên nhân'))].slice(0,3);status.textContent='Hoàn thành '+(total-missing)+'/'+total+' chương.'+(missing?' Lỗi: '+reasons.join(' · ')+'. Bấm Tải nội dung để thử lại.':' Sẵn sàng xuất file.');
@@ -132,7 +132,7 @@ function bookParagraphs(d){
  const out=[];
  if(storyMeta.description){out.push({text:'Giới Thiệu',heading:true});for(const p of sourceParagraphs(storyMeta.description))if(p.trim())out.push({text:p.trim()})}
  if(storyMeta.categories?.length)out.push({text:'Thể loại: '+storyMeta.categories.join(', ')});
- if(downloaded.length){for(const chapter of downloaded){out.push({text:chapter.title,heading:true});for(const p of sourceParagraphs(chapter.content||'[Không tải được nội dung]'))if(p.trim())out.push({text:p.trim()})}}
+ if(downloaded.length){for(const chapter of downloaded.filter(x=>x.content)){out.push({text:chapter.title,heading:true});for(const p of sourceParagraphs(chapter.content||''))if(p.trim())out.push({text:p.trim()})}}
  else for(const p of sourceParagraphs($('content').value))if(p.trim())out.push({text:p.trim()});
  return out;
 }
@@ -176,7 +176,7 @@ if(fmt==='docx'){
  for(let i=0;i<downloaded.length;i++){
   const chapter=downloaded[i];
   paragraphs.push(para(chapter.title,'heading'));
-  for(const block of sourceParagraphs(chapter.content||'[Không tải được nội dung]')){if(block.trim())paragraphs.push(para(block.trim()))}
+  for(const block of sourceParagraphs(chapter.content||'')){if(block.trim())paragraphs.push(para(block.trim()))}
   for(const im of inlineImages.filter(x=>x.chapter===i))paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,children:[new docx.ImageRun({data:im.bytes,transformation:{width:300,height:300},type:im.ext})]}));
  }
  if(!downloaded.length)for(const block of sourceParagraphs($('content').value))if(block.trim())paragraphs.push(para(block.trim()));
