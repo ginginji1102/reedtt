@@ -154,9 +154,11 @@ def chapter_links(soup,base,story_path):
             from urllib.parse import parse_qs
             params=parse_qs(target.query)
             if target.hostname!=host or target.path.rstrip("/")!="/reader" or not params.get("storyId") or not params.get("chapter"):continue
-            # Restrict results to this story's UUID when present in page anchors.
-            if not re.search(r"\\b(?:chương|chuong|chapter)\\s*\\d+\\b",label,re.I):continue
-            label=re.search(r"(?:chương|chuong|chapter)\\s*\\d+(?:\\s*[:.\\-–]\\s*[^0-9]{2,100})?",label,re.I).group(0).strip()
+            # Use actual chapter entries and discard reading statistics.
+            if "chapter-list-item" not in (a.get("class") or []):continue
+            heading=a.select_one("strong,p")
+            label=heading.get_text(" ",strip=True) if heading else ""
+            if not re.fullmatch(r"(?:chương|chuong|chapter)\s*\d+",label,re.I):continue
         elif not re.search(r"(chương|chuong|chapter)\s*[-:]?\s*\d+|/(chuong|chapter)[-_]?\d+",label+" "+href,re.I):continue
         if host.endswith("navyteams.com"):
             # Chapter list entries may append publication dates in child elements.
