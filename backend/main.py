@@ -236,20 +236,27 @@ def wattpad_story_text(html,base,include_images=False):
     root=soup.body or soup
     paragraphs=[]
     images=[]
+    # Images can be standalone elements outside paragraphs.
+    if include_images:
+        for img in root.select('img'):
+            src=img.get('data-src') or img.get('data-original') or img.get('src')
+            if src:
+                resolved=image_url(base,src)
+                if resolved and resolved not in images:images.append(resolved)
     for p in root.find_all('p'):
         if p.find_parent(['aside','nav','footer','header','script','style']):continue
         for img in p.find_all('img'):
             src=img.get('data-src') or img.get('src')
             if src and include_images:
                 resolved=image_url(base,src)
-                if resolved:images.append(resolved)
+                if resolved and resolved not in images:images.append(resolved)
         for bad in p.select('script,style,button,nav,aside'):bad.decompose()
         for br in p.find_all('br'):br.replace_with('\n')
         text=p.get_text('',strip=False).replace('\xa0',' ').strip()
         text=re.sub(r'[ \t]+',' ',text)
         text=re.sub(r'\n{3,}','\n\n',text)
         if text:paragraphs.append(text)
-    return '\n\n'.join(paragraphs)[:300000],images[:50]
+    return '\n\n'.join(paragraphs)[:300000],images[:1000]
 
 def page_links(soup,base,story_path):
     result=[]
@@ -663,7 +670,7 @@ async def batch(req:BatchRequest):
                             return {'title':item['title'],'url':item['url'],'content':text,'images':imgs}
                     soup,base=await get_page(client,item["url"])
                     content,images=chapter_body(soup,base)
-                    if is_wattpad and not content:
+                    if is_wattpad and not content and not images:
                         return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"Wattpad không cung cấp nội dung chương qua HTML hoặc bản ZIP công khai; chương có thể bị khóa hoặc nguồn từ chối máy chủ."}
                     if not content and (urlparse(base).hostname or "").lower().endswith("navyteams.com"):
                         return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"NavyTeams: trang chương không có nội dung HTML nhận diện được (có thể tải bằng JavaScript hoặc cấu trúc khác)."}
