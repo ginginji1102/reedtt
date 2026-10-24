@@ -315,6 +315,19 @@ def page_links(soup,base,story_path):
         if href and urlparse(href).path.rstrip("/").startswith(story_path.rstrip("/")) and href not in result:result.append(href)
     return result[:50]
 
+def truyenfull_clean_text(value):
+    """Decode source-escaped paragraph separators without affecting other sources."""
+    value=str(value or "")
+    for _ in range(5):
+        updated=(value.replace("\\\\r\\\\n","\n").replace("\\\\n","\n")
+                     .replace("\\\\r","\n").replace("\\r\\n","\n")
+                     .replace("\\n","\n").replace("\\r","\n"))
+        if updated==value:break
+        value=updated
+    value=value.replace("\xa0"," ").replace("\r\n","\n").replace("\r","\n")
+    value=re.sub(r"[ \t]*\n[ \t]*","\n",value)
+    return re.sub(r"\n{3,}","\n\n",value).strip()
+
 def chapter_body(soup, source_url=''):
     host=(urlparse(source_url).hostname or '').lower()
     special=host.endswith(('wattpad.com','inkitt.com'))
@@ -369,6 +382,8 @@ def chapter_body(soup, source_url=''):
     content=re.sub(r"[ \t]+"," ",content)
     content=re.sub(r" *\n *","\n",content)
     content=re.sub(r"\n{3,}","\n\n",content).strip()
+    if host.endswith("truyenfull.live"):
+        content=truyenfull_clean_text(content)
     if special:
         # Only accept story paragraphs. Never harvest recommendation cards or comments.
         ui=re.compile(r'^(?:[0-9]+(?:[.,][0-9]+)?[KMB]?|[0-9]+\s*(?:comments?|bình luận|votes?|lượt đọc)|bởi .{1,70}|by .{1,70}|Chia sẻ|Gửi|Post to Your Profile|Share via Email|Report Story|Share|Send|Vote|Reply|Trả lời|Like|Thích|Xem thêm|Đọc thêm|[?？]{1,4})$',re.I)
