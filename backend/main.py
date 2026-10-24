@@ -467,7 +467,7 @@ async def discover(req:ReadRequest):
         async with httpx.AsyncClient(timeout=25,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36","Accept":"application/json","Accept-Language":"en-US,en;q=0.9"}) as client:
             info=await wattpad_story_metadata(client,req.url)
             if info and info.get("parts"):
-                return {"title":info.get("title") or "", "author":info.get("author") or "", "cover":info.get("cover") or "", "chapters":info["parts"],"count":len(info["parts"]),"story_url":info.get("story_url") or req.url}
+                return {"title":info.get("title") or "", "author":info.get("author") or "", "cover":info.get("cover") or "", "description":info.get("description") or "", "chapters":info["parts"],"count":len(info["parts"]),"story_url":info.get("story_url") or req.url}
         # Wattpad's API can return 403/429 while public story HTML still contains part links.
         try:
             async with httpx.AsyncClient(timeout=25,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml","Accept-Language":"vi-VN,vi;q=0.9"}) as client:
