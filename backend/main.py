@@ -851,6 +851,28 @@ async def luotnovel_discover(url):
                 collect(sub,link)
             except (HTTPException,httpx.HTTPError):pass
     if not found:
+        # LuotNovel loads its table of contents asynchronously into #nt_listchapter.
+        try:
+            async with await _render_browser() as playwright:
+                browser=await playwright.chromium.launch(headless=True,args=["--no-sandbox","--disable-dev-shm-usage"])
+                try:
+                    page=await browser.new_page(locale="vi-VN")
+                    await page.goto(url,wait_until="domcontentloaded",timeout=35000)
+                    try:
+                        await page.locator("#nt_listchapter a[href]").first.wait_for(timeout=18000)
+                    except Exception:
+                        pass
+                    for _ in range(5):
+                        await page.evaluate("window.scrollTo(0,document.body.scrollHeight)")
+                        await page.wait_for_timeout(700)
+                    rendered_html=await page.content()
+                    rendered_soup=BeautifulSoup(rendered_html,"html.parser")
+                    collect(rendered_soup,url)
+                finally:
+                    await browser.close()
+        except Exception:
+            pass
+    if not found:
         try:
             rendered=await _render_page(url)
             for item in rendered.get("links",[]):
