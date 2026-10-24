@@ -268,9 +268,9 @@ async function imageBytes(url){
   return blob;
  };
  let blob=null;
- for(let attempt=0;attempt<4&&!blob;attempt++){
-  try{blob=await fetchBlob(attempt!==0,attempt===0?12000:30000)}
-  catch(e){console.warn('Thử tải ảnh '+(attempt+1)+'/4',url,e.message);if(attempt<3)await new Promise(resolve=>setTimeout(resolve,800*(attempt+1)))}
+ for(let attempt=0;attempt<2&&!blob;attempt++){
+  try{blob=await fetchBlob(attempt!==0,attempt===0?4500:14000)}
+  catch(e){console.warn('Thử tải ảnh '+(attempt+1)+'/2',url,e.message)}
  }
  if(!blob)return null;
  if(blob.type==='image/webp'){try{const bmp=await createImageBitmap(blob),canvas=document.createElement('canvas');canvas.width=bmp.width;canvas.height=bmp.height;canvas.getContext('2d').drawImage(bmp,0,0);blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));bmp.close();if(!blob)return null}catch{return null}}
@@ -326,7 +326,7 @@ async function chapterImages(){
  // Large Wattpad image sets need gentle, sequential requests to avoid throttling.
  const storyHost=(()=>{try{return new URL(storyMeta.story_url||$('url').value).hostname.toLowerCase()}catch{return ''}})();
  const slowMode=jobs.length>=80||storyHost.includes('wattpad.com');
- const concurrency=slowMode?1:Math.min(3,jobs.length);
+ const concurrency=slowMode?2:Math.min(5,jobs.length);
  let cursor=0,done=0,successful=0;
  const workers=Array.from({length:concurrency},async()=>{
   while(cursor<jobs.length){
@@ -337,7 +337,7 @@ async function chapterImages(){
    }catch(e){console.warn('Không tải được ảnh chương',job.url,e)}
    done++;
    status.textContent='Đang tải ảnh '+done+'/'+jobs.length+' ('+successful+' ảnh thành công)...';
-   if(slowMode&&cursor<jobs.length)await pause(900);
+   if(slowMode&&cursor<jobs.length)await pause(200);
   }
  });
  await Promise.all(workers);
@@ -361,11 +361,14 @@ if(fmt==='docx'){
   paragraphs.push(para('Giới Thiệu','heading'));
   for(const block of sourceParagraphs(storyMeta.description)){if(block.trim())paragraphs.push(para(block.trim()))}
  }
+ const imagesByChapter=new Map();
+ for(const im of inlineImages){if(!imagesByChapter.has(im.chapter))imagesByChapter.set(im.chapter,[]);imagesByChapter.get(im.chapter).push(im)}
  for(let i=0;i<downloaded.length;i++){
   const chapter=downloaded[i];
+  if(i%20===0){status.textContent='Đang tạo nội dung Word: '+(i+1)+'/'+downloaded.length+' chương...';await new Promise(resolve=>setTimeout(resolve,0))}
   paragraphs.push(para(chapter.title,isVolume(chapter.title)?'volume':'heading'));
   for(const block of sourceParagraphs(chapter.content||'')){if(block.trim())paragraphs.push(para(block.trim()))}
-  for(const im of inlineImages.filter(x=>x.chapter===i))paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,children:[new docx.ImageRun({data:im.bytes,transformation:{width:300,height:300},type:im.ext})]}));
+  for(const im of (imagesByChapter.get(i)||[]))paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,children:[new docx.ImageRun({data:im.bytes,transformation:{width:300,height:300},type:im.ext})]}));
  }
  if(!downloaded.length)for(const block of sourceParagraphs($('content').value))if(block.trim())paragraphs.push(para(block.trim()));
  const doc=new docx.Document({
