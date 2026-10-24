@@ -180,14 +180,41 @@ $('fetchchapters').onclick=loadChapters;
 const escapeXml=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function normalizeEscapedNewlines(text){
  let value=String(text??'');
- return value.replace(/\\r\\n/g,'\n').replace(/\\n/g,'\n').replace(/\\r/g,'\n').replace(/\r\n?/g,'\n');
+ // Some sources double-escape JSON newlines (\\n\\n), while others return \n.
+ for(let pass=0;pass<3;pass++){
+  const next=value.replace(/\\r\\n/g,'\n').replace(/\\n/g,'\n').replace(/\\r/g,'\n');
+  if(next===value)break;
+  value=next;
+ }
+ return value.replace(/\r\n?/g,'\n').replace(/[ \t]*\n[ \t]*/g,'\n').replace(/\n{3,}/g,'\n\n');
+}
+const sourceCleaners={
+ wattpad:text=>text,
+ truyenfull:text=>text.replace(/(?:truyenfullvn|truyenfulllive|truyenfull|truyen full)/gi,'').replace(/(?:\s*,){2,}\s*(?:vn\b)?/gi,' ').replace(/(^|[\s,])vn(?=\s*(?:$|[.!?\n]))/gi,'$1').replace(/\s+,/g,',').replace(/,{2,}/g,','),
+ wordpress:text=>text,
+ navyteams:text=>text,
+ giatocvuongtai:text=>text,
+ luotnovel:text=>text,
+ inkitt:text=>text
+};
+function activeSource(){
+ const host=(()=>{try{return new URL(storyMeta.story_url||$('url').value).hostname.toLowerCase()}catch{return ''}})();
+ if(host.endsWith('wattpad.com'))return 'wattpad';
+ if(host.endsWith('truyenfull.live'))return 'truyenfull';
+ if(host.endsWith('wordpress.com'))return 'wordpress';
+ if(host.endsWith('navyteams.com'))return 'navyteams';
+ if(host.endsWith('giatocvuongtai.com'))return 'giatocvuongtai';
+ if(host.endsWith('luotnovel1.site'))return 'luotnovel';
+ if(host.endsWith('inkitt.com'))return 'inkitt';
+ return 'unknown';
 }
 function cleanSourceMarks(text){
- return normalizeEscapedNewlines(text).replace(/(?:truyenfullvn|truyenfulllive|truyenfull|truyen full)/gi,'').replace(/(?:\s*,){2,}\s*(?:vn\b)?/gi,' ').replace(/(^|[\s,])vn(?=\s*(?:$|[.!?\n]))/gi,'$1').replace(/\s+,/g,',').replace(/,{2,}/g,',').replace(/[ \t]{2,}/g,' ').replace(/ *\n */g,'\n').trim();
+ const normalized=normalizeEscapedNewlines(text);
+ const cleaner=sourceCleaners[activeSource()]||((value)=>value);
+ return cleaner(normalized).replace(/[ \t]{2,}/g,' ').replace(/ *\n */g,'\n').trim();
 }
 function sourceParagraphs(text){
- const cleaned=cleanSourceMarks(text).replace(/\r\n?/g,'\n');
- return cleaned.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+ return cleanSourceMarks(text).split(/\n+/).map(x=>x.trim()).filter(Boolean);
 }
 function bookParagraphs(d){
  const out=[];
@@ -236,7 +263,7 @@ $('download').onclick=async()=>{const d=get();const status=$('status');const exp
 if(fmt==='docx'){
  if(!window.docx)throw Error('Không tải được thư viện Word.');
  const isVolume=text=>/^(?:quyển|quyen|tập|tap|phần|part)\s*(?:\d+|[ivxlcdm]+)\b/i.test((text||'').trim());
- const para=(text,kind='normal',extra={})=>new docx.Paragraph({text,style:kind==='title'||kind==='volume'?'Heading1':kind==='heading'?'Heading2':'Normal',...extra});
+ const para=(text,kind='normal',extra={})=>new docx.Paragraph({text:cleanSourceMarks(text),style:kind==='title'||kind==='volume'?'Heading1':kind==='heading'?'Heading2':'Normal',...(kind==='title'||kind==='volume'?{alignment:docx.AlignmentType.CENTER}:{}),...extra});
  const paragraphs=[para(d.title,'title')];
  if(cover)paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,spacing:{after:120},children:[new docx.ImageRun({data:cover.bytes,transformation:{width:270,height:400},type:cover.ext})]}));
  if(d.author)paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,spacing:{after:80},children:[new docx.TextRun({text:'Tác giả: ',bold:true}),new docx.TextRun(d.author)]}));
@@ -256,7 +283,7 @@ if(fmt==='docx'){
  const doc=new docx.Document({
   styles:{default:{document:{run:{font:'Tahoma',size:22,color:'000000'},paragraph:{spacing:{after:160,line:360}}}},paragraphStyles:[
    {id:'StoryTitle',name:'Story Title',basedOn:'Normal',next:'Normal',run:{font:'Cambria',size:32,bold:true,color:'1F3864'},paragraph:{alignment:docx.AlignmentType.CENTER,spacing:{after:140}}},
-   {id:'Heading1',name:'Heading 1',basedOn:'Normal',next:'Normal',run:{font:'Cambria',size:32,bold:true,color:'1F3864'},paragraph:{spacing:{before:240,after:0}}},
+   {id:'Heading1',name:'Heading 1',basedOn:'Normal',next:'Normal',run:{font:'Cambria',size:32,bold:true,color:'1F3864'},paragraph:{alignment:docx.AlignmentType.CENTER,spacing:{before:240,after:0}}},
    {id:'Heading2',name:'Heading 2',basedOn:'Normal',next:'Normal',run:{font:'Tahoma',size:22,bold:true,color:'000000'},paragraph:{spacing:{before:40,after:0,line:360}}}
   ]},
   sections:[{properties:{page:{size:{width:11906,height:16838},margin:{top:720,right:720,bottom:720,left:720,header:360,footer:360}}},children:paragraphs}]
