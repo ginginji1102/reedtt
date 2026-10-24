@@ -128,7 +128,7 @@ async function loadChapters(){
  try{
   const chunkSize=new URL(url).hostname.endsWith('giatocvuongtai.com')?2:new URL(url).hostname.endsWith('wattpad.com')?5:10;
   const host=new URL(url).hostname;
-  const concurrency=host.endsWith('wattpad.com')?4:host.endsWith('giatocvuongtai.com')?1:5;
+  const concurrency=host.endsWith('wattpad.com')?1:host.endsWith('giatocvuongtai.com')?1:5;
   const ranges=[];
   for(let from=start;from<=end;from+=chunkSize)ranges.push({from,to:Math.min(from+chunkSize-1,end)});
   const results=new Array(ranges.length);
@@ -140,7 +140,7 @@ async function loadChapters(){
     let result=cached.every(x=>x&&(x.content||x.images?.length))?cached:null;
     if(!result){
      let lastError;
-     const maxAttempts=3;
+     const maxAttempts=host.endsWith('wattpad.com')?5:3;
      for(let attempt=1;attempt<=maxAttempts;attempt++){
       try{
        const data=host.endsWith('giatocvuongtai.com')
@@ -148,7 +148,7 @@ async function loadChapters(){
         :await api('/batch',{url,start:from,end:to,chapters:items,include_images});
        if(!Array.isArray(data.chapters)||data.chapters.length!==items.length)throw Error('Phản hồi chưa đầy đủ');
        result=data.chapters;break;
-      }catch(e){lastError=e;if(attempt<maxAttempts)await sleep(700*attempt)}
+      }catch(e){lastError=e;if(attempt<maxAttempts)await sleep(host.endsWith('wattpad.com')?1500*attempt:700*attempt)}
      }
      if(!result){failures+=items.length;result=items.map(item=>({title:item.title,url:item.url,content:'',images:[],error:lastError?.message||'Không tải được'}))}
     }
@@ -158,14 +158,14 @@ async function loadChapters(){
    }
   }
   await Promise.all(Array.from({length:Math.min(concurrency,ranges.length)},()=>worker()));
-  downloaded=results.flat();
+  downloaded=results.flat().map(ch=>{const old=previous.get(ch.url);return (!ch.content&&!ch.images?.length&&old&&(old.content||old.images?.length))?old:ch});
   $('content').value=downloaded.map(x=>x.title+'\\n\\n'+(x.content||(x.images?.length?'[Chương gồm '+x.images.length+' ảnh]':'[Chương tải lỗi — xem thông báo trạng thái]'))).join('\\n\\n\\n');
   const failed=downloaded.filter(x=>!x.content&&!x.images?.length);
   if(failed.length&& !host.endsWith('giatocvuongtai.com')){
    status.textContent='Đang thử tải lại '+failed.length+' chương bị lỗi...';
-   for(let i=0;i<failed.length;i+=5){
+   for(let i=0;i<failed.length;i+=3){
     try{
-     const data=await api('/batch',{url,chapters:failed.slice(i,i+5),include_images});
+     const data=await api('/batch',{url,chapters:failed.slice(i,i+3),include_images});
      for(const chapter of data.chapters||[]){const idx=downloaded.findIndex(x=>x.url===chapter.url);if(idx>=0&&(chapter.content||chapter.images?.length))downloaded[idx]=chapter}
     }catch(e){}
    }
