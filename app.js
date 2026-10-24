@@ -222,7 +222,7 @@ $('check').onclick=loadStory;
 $('download').onclick=async()=>{const d=get();const status=$('status');status.textContent='Đang tạo file...';try{if(!d.body.trim())throw Error('Hãy nhập nội dung trước.');const fmt=document.querySelector('input[name="format"]:checked').value;const name=(d.title.replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,55)||'truyen')+'.'+fmt;const cover=await coverBytes();const inlineImages=await chapterImages();
 if(fmt==='docx'){
  if(!window.docx)throw Error('Không tải được thư viện Word.');
- const para=(text,kind='normal',extra={})=>new docx.Paragraph({text,style:kind==='title'?'StoryTitle':kind==='heading'?'Heading2':'Normal',...extra});
+ const para=(text,kind='normal',extra={})=>new docx.Paragraph({text,style:kind==='title'?'StoryTitle':kind==='heading'?'Heading1':'Normal',...extra});
  const paragraphs=[para(d.title,'title')];
  if(cover)paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,spacing:{after:120},children:[new docx.ImageRun({data:cover.bytes,transformation:{width:270,height:400},type:cover.ext})]}));
  if(d.author)paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,spacing:{after:80},children:[new docx.TextRun({text:'Tác giả: ',bold:true}),new docx.TextRun(d.author)]}));
