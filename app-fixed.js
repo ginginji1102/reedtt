@@ -126,7 +126,7 @@ async function loadChapters(){
  const total=end-start+1;
  let failures=0;
  try{
-  const chunkSize=new URL(url).hostname.endsWith('giatocvuongtai.com')?2:new URL(url).hostname.endsWith('wattpad.com')?10:10;
+  const chunkSize=5;
   const host=new URL(url).hostname;
   const concurrency=host.endsWith('wattpad.com')?2:host.endsWith('giatocvuongtai.com')?1:4;
   const ranges=[];
