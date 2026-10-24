@@ -126,9 +126,9 @@ async function loadChapters(){
  const total=end-start+1;
  let failures=0;
  try{
-  const chunkSize=new URL(url).hostname.endsWith('giatocvuongtai.com')?2:new URL(url).hostname.endsWith('wattpad.com')?5:10;
+  const chunkSize=new URL(url).hostname.endsWith('giatocvuongtai.com')?2:new URL(url).hostname.endsWith('wattpad.com')?10:15;
   const host=new URL(url).hostname;
-  const concurrency=host.endsWith('wattpad.com')?1:host.endsWith('giatocvuongtai.com')?1:5;
+  const concurrency=host.endsWith('wattpad.com')?2:host.endsWith('giatocvuongtai.com')?1:4;
   const ranges=[];
   for(let from=start;from<=end;from+=chunkSize)ranges.push({from,to:Math.min(from+chunkSize-1,end)});
   const results=new Array(ranges.length);
