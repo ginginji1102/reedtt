@@ -581,7 +581,7 @@ async def discover(req:ReadRequest):
                 pass
             return await inkitt_info(client,req.url)
     try:
-        async with httpx.AsyncClient(timeout=20,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"en-US,en;q=0.9"}) as client:
+        async with httpx.AsyncClient(timeout=45 if u.hostname.lower().endswith("navyteams.com") else 20,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"en-US,en;q=0.9"}) as client:
             soup,base=await get_page(client,req.url)
             if (urlparse(base).hostname or "").lower().endswith("navyteams.com"):
                 keywords=soup.select_one('meta[name="keywords"]')
@@ -768,7 +768,7 @@ async def discover(req:ReadRequest):
     except httpx.ConnectError as exc:
         raise HTTPException(502,"Không kết nối được tới máy chủ nguồn từ Render (lỗi DNS, TLS hoặc kết nối mạng).") from exc
     except httpx.TimeoutException as exc:
-        raise HTTPException(504,"Máy chủ nguồn không phản hồi trong 20 giây.") from exc
+        raise HTTPException(504,"Máy chủ nguồn phản hồi quá chậm hoặc không kết nối được từ Render (NavyTeams: tối đa 45 giây; các nguồn khác: 20 giây).") from exc
     except httpx.HTTPError as exc:
         raise HTTPException(502,f"Không thể tải nguồn: {type(exc).__name__}.") from exc
 
