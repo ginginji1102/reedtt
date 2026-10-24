@@ -79,18 +79,18 @@ async function browserChapter(url){
 }
 async function loadStory(){
  const status=$('urlstatus'),btn=$('check');
- let u;try{u=safeUrl($('url').value.trim());const src=$('source').value;if(src!=='auto'&&!(u.hostname===src||u.hostname.endsWith('.'+src)))throw Error('Nguồn đã chọn không khớp với link.')}catch(e){status.textContent=e.message||'Nhập URL HTTPS hợp lệ.';return}
+ let u;try{u=safeUrl($('url').value.trim());const src=$('source').value;const detected=[...$('source').options].map(x=>x.value).find(x=>x!=='auto'&&(u.hostname===x||u.hostname.endsWith('.'+x)));if(!detected)throw Error('Nguồn truyện chưa được hỗ trợ.');if(src!=='auto'&&src!==detected)$('source').value=detected}catch(e){status.textContent=e.message||'Nhập URL HTTPS hợp lệ.';return}
  btn.disabled=true;status.textContent='Đang rà mục lục và các trang danh sách chương...';
  try{
   let data;
   if(u.hostname==='giatocvuongtai.com'||u.hostname.endsWith('.giatocvuongtai.com')){
    status.textContent='Đang mở trang bằng Playwright trên Render...';
-   try{data=await api('/render-discover',{url:u.href,source:$('source').value})}
+   try{data=await api('/render-discover',{url:u.href,source:'auto'})}
    catch(e){
     if(e instanceof TypeError||/Failed to fetch|NetworkError|Load failed/i.test(e.message||''))throw Error('Trình duyệt không được phép đọc trực tiếp nguồn này (có thể do CORS). Cần tiện ích trình duyệt có quyền truy cập trang nguồn. Không thể giải quyết bằng Render.');
     throw e;
    }
-  }else data=await api('/discover',{url:u.href,source:$('source').value});
+  }else data=await api('/discover',{url:u.href,source:'auto'});
   discovered=data.chapters||[];
   storyMeta={title:data.title||"",author:data.author||"",description:data.description||"",categories:data.categories||[],cover:data.cover||"",story_url:data.story_url||""};
   const meta=$("storymeta");meta.replaceChildren();
@@ -145,8 +145,8 @@ async function loadChapters(){
      for(let attempt=1;attempt<=maxAttempts;attempt++){
       try{
        const data=host.endsWith('giatocvuongtai.com')
-        ?await api('/render-batch',{url,start:from,end:to,chapters:items,include_images,source:$('source').value})
-        :await api('/batch',{url,start:from,end:to,chapters:items,include_images,source:$('source').value});
+        ?await api('/render-batch',{url,start:from,end:to,chapters:items,include_images,source:'auto'})
+        :await api('/batch',{url,start:from,end:to,chapters:items,include_images,source:'auto'});
        if(!Array.isArray(data.chapters)||data.chapters.length!==items.length)throw Error('Phản hồi chưa đầy đủ');
        result=data.chapters;break;
       }catch(e){lastError=e;if(attempt<maxAttempts)await sleep(host.endsWith('wattpad.com')?1500*attempt:700*attempt)}
