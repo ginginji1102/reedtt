@@ -240,7 +240,23 @@ async function imageBytes(url){
  const data={bytes:new Uint8Array(await blob.arrayBuffer()),mime:blob.type,ext:blob.type==='image/png'?'png':'jpg'};
  imageCache.set(url,data);return data;
 }
-async function coverBytes(){return await imageBytes(storyMeta.cover)}
+async function coverBytes(){
+ let url=storyMeta.cover;
+ const storyUrl=storyMeta.story_url||$('url').value.trim();
+ try{
+  const host=new URL(storyUrl).hostname.toLowerCase();
+  if(host==='navyteams.com'||host.endsWith('.navyteams.com')){
+   if(!url){
+    const img=document.querySelector('#storymeta img.story-meta-cover');
+    if(img?.src&&!img.src.startsWith('blob:'))url=img.src;
+   }
+   if(!url)throw Error('NavyTeams chưa trả về URL ảnh bìa. Hãy thu thập lại thông tin truyện trước khi xuất file.');
+  }
+ }catch(e){if(e.message?.includes('NavyTeams'))throw e}
+ const result=await imageBytes(url);
+ if(url&&!result)throw Error('Không tải được ảnh bìa từ '+new URL(url).hostname+'. Không tạo file thiếu ảnh bìa.');
+ return result;
+}
 async function chapterImages(){
  const jobs=[];
  for(let i=0;i<downloaded.length;i++)
