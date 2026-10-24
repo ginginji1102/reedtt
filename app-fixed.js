@@ -225,13 +225,13 @@ function sourceParagraphs(text){
 }
 function bookParagraphs(d){
  const out=[];
- if(storyMeta.description){out.push({text:'Giới Thiệu',heading:true});for(const p of sourceParagraphs(storyMeta.description))if(p.trim())out.push({text:p.trim()})}
  if(storyMeta.categories?.length)out.push({text:'Thể loại: '+storyMeta.categories.join(', ')});
+ if(storyMeta.description){out.push({text:'Giới Thiệu',heading:true});for(const p of sourceParagraphs(storyMeta.description))if(p.trim())out.push({text:p.trim()})}
  if(downloaded.length){for(const chapter of downloaded.filter(x=>x.content)){out.push({text:chapter.title,heading:true});for(const p of sourceParagraphs(chapter.content||''))if(p.trim())out.push({text:p.trim()})}}
  else for(const p of sourceParagraphs($('content').value))if(p.trim())out.push({text:p.trim()});
  return out;
 }
-const get=()=>({title:cleanSourceMarks($('title').value.trim()||'Truyện mẫu'),author:cleanSourceMarks($('author').value.trim()),body:[storyMeta.description?'Giới Thiệu\n'+storyMeta.description:'',storyMeta.categories?.length?'Thể loại: '+storyMeta.categories.join(', '):'',$('content').value].filter(Boolean).join('\n\n')});
+const get=()=>({title:cleanSourceMarks($('title').value.trim()||'Truyện mẫu'),author:cleanSourceMarks($('author').value.trim()),body:[storyMeta.categories?.length?'Thể loại: '+storyMeta.categories.join(', '):'',storyMeta.description?'Giới Thiệu\n'+storyMeta.description:'',$('content').value].filter(Boolean).join('\n\n')});
 const imageCache=new Map();
 async function imageBytes(url){
  if(!url)return null;
