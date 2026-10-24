@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 app = FastAPI(title="Reedtt Reader API")
-app.add_middleware(CORSMiddleware, allow_origins=["https://yuu110299.github.io", "https://ginginji1102.github.io", "https://truyen-reader-demo.vercel.app"], allow_origin_regex=r"https://[a-z0-9-]+\\.onrender\\.com", allow_methods=["GET","POST"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["https://yuu110299.github.io", "https://ginginji1102.github.io", "https://truyen-reader-demo.vercel.app"], allow_origin_regex=r"https://[a-z0-9-]+\.onrender\.com", allow_methods=["GET","POST"], allow_headers=["*"])
 
 ALLOWED = ("truyenfull.live", "wattpad.com", "wordpress.com", "navyteams.com", "inkitt.com", "giatocvuongtai.com", "luotnovel1.site")
 SELECTORS = ("#chapter-content", "#chapterContent", "#chapter-content-body", ".chapter-reading", ".chapter-body", ".chapter-text", ".reading-content", ".entry-content", ".chapter-content", ".reading-content", ".entry-content", ".chapter-c", "article", "[itemprop=articleBody]")
