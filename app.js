@@ -199,8 +199,8 @@ const get=()=>({title:cleanSourceMarks($('title').value.trim()||'Truyện mẫu'
 async function imageBytes(url){
  if(!url)return null;
  let blob;
- try{const r=await fetch(url,{mode:'cors'});if(r.ok)blob=await r.blob()}catch{}
- if(!blob){try{const r=await fetch(API+'/image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});if(r.ok)blob=await r.blob()}catch{}}
+ try{const r=await fetch(url,{mode:'cors',signal:AbortSignal.timeout(9000)});if(r.ok)blob=await r.blob()}catch{}
+ if(!blob){try{const r=await fetch(API+'/image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url}),signal:AbortSignal.timeout(15000)});if(r.ok)blob=await r.blob()}catch{}}
  if(!blob||blob.size>5000000||!/^image\/(png|jpeg|webp)$/.test(blob.type))return null;
  if(blob.type==='image/webp'){try{const bmp=await createImageBitmap(blob),canvas=document.createElement('canvas');canvas.width=bmp.width;canvas.height=bmp.height;canvas.getContext('2d').drawImage(bmp,0,0);blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));bmp.close()}catch{return null}}
  return {bytes:new Uint8Array(await blob.arrayBuffer()),mime:blob.type,ext:blob.type==='image/png'?'png':'jpg'};
@@ -213,7 +213,7 @@ async function chapterImages(){
  const result=new Array(jobs.length);
  let cursor=0,done=0;
  const status=$('status');
- const workers=Array.from({length:Math.min(6,jobs.length)},async()=>{
+ const workers=Array.from({length:Math.min(10,jobs.length)},async()=>{
   while(cursor<jobs.length){
    const index=cursor++,job=jobs[index];
    try{const data=await imageBytes(job.url);if(data)result[index]={chapter:job.chapter,...data}}
@@ -227,7 +227,7 @@ async function chapterImages(){
 }
 function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)}
 $('check').onclick=loadStory;
-$('download').onclick=async()=>{const d=get();const status=$('status');status.textContent='Đang tạo file...';try{if(!d.body.trim()&&!downloaded.some(ch=>(ch.images||[]).length))throw Error('Chưa có nội dung hoặc ảnh chương để xuất.');const fmt=document.querySelector('input[name="format"]:checked').value;const name=(d.title.replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,55)||'truyen')+'.'+fmt;const [cover,inlineImages]=await Promise.all([coverBytes(),chapterImages()]);
+$('download').onclick=async()=>{const d=get();const status=$('status');status.textContent='Đang tạo file...';try{if(!d.body.trim()&&!downloaded.some(ch=>(ch.images||[]).length))throw Error('Chưa có nội dung hoặc ảnh chương để xuất.');const fmt=document.querySelector('input[name="format"]:checked').value;const name=(d.title.replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,55)||'truyen')+'.'+fmt;const [cover,inlineImages]=await Promise.all([coverBytes(),chapterImages()]);if(downloaded.some(ch=>ch.images?.length)&&!inlineImages.length)throw Error('Không tải được ảnh chương. Kiểm tra nguồn ảnh hoặc máy chủ proxy, chưa tạo file trống.');
 if(fmt==='docx'){
  if(!window.docx)throw Error('Không tải được thư viện Word.');
  const para=(text,kind='normal',extra={})=>new docx.Paragraph({text,style:kind==='title'?'StoryTitle':kind==='heading'?'Heading1':'Normal',...extra});
