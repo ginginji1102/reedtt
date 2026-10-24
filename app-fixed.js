@@ -92,6 +92,16 @@ async function loadStory(){
    }
   }else data=await api('/discover',{url:u.href,source:'auto'});
   discovered=data.chapters||[];
+  // Enforce reading order on the client too, including cached or older API results.
+  if(u.hostname.endsWith('navyteams.com')){
+   const chapterKey=(ch)=>{
+    const title=ch.title||'',path=(()=>{try{return new URL(ch.url).pathname}catch{return ''}})();
+    const extra=/ngoại\\s*truyện|ngoai[-_\\s]*truyen|extra|番外/i.test(title+' '+path);
+    const match=title.match(/(?:chương|chuong|chapter|chap|ngoại\\s*truyện|ngoai[-_\\s]*truyen|extra)[^0-9]{0,20}(\\d+)/i)||path.match(/(?:chuong|chapter|chap|ngoai-truyen|extra)[-_]?(\\d+)/i);
+    return [extra?1:0,match?Number(match[1]):Number.MAX_SAFE_INTEGER];
+   };
+   discovered=discovered.map((ch,i)=>({...ch,__order:i})).sort((a,b)=>{const x=chapterKey(a),y=chapterKey(b);return x[0]-y[0]||x[1]-y[1]||a.__order-b.__order}).map(({__order,...ch})=>ch);
+  }
   storyMeta={title:data.title||"",author:data.author||"",description:data.description||"",categories:data.categories||[],cover:data.cover||"",story_url:data.story_url||""};
   const meta=$("storymeta");meta.replaceChildren();
   const layout=document.createElement("div");layout.className="story-meta-layout";
