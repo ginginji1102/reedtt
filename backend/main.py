@@ -175,41 +175,49 @@ def chapter_links(soup,base,story_path):
     return list(found.values())
 
 async def wattpad_story_metadata(client,url):
-    """WattpadDownloader-inspired: support either a story URL or a part URL."""
-    parsed=urlparse(url)
-    story_match=re.search(r'/story/(\d+)',parsed.path)
-    part_match=re.match(r'^/(\d{6,})(?:-|/|$)',parsed.path)
-    story_id=story_match.group(1) if story_match else None
+    """Resolve both Wattpad story links and individual part links using public APIs."""
+    path=urlparse(url).path
+    match=re.search(r"/story/(\\d+)",path)
+    part=re.match(r"/(\\d{6,})(?:-|/|$)",path)
+    story_id=match.group(1) if match else None
     try:
-        if not story_id and part_match:
-            part_id=part_match.group(1)
-            response=await client.get(
-                'https://www.wattpad.com/api/v3/story_parts/'+part_id,
-                params={'fields':'groupId,group(id,title,cover,user(username),parts(id,title))'},
-                headers={'Accept':'application/json'})
-            if response.status_code!=200:return None
-            data=response.json()
-            group=data.get('group') if isinstance(data,dict) else None
-            story_id=str(data.get('groupId') or (group.get('id') if isinstance(group,dict) else '') or '')
-        if not story_id or not re.fullmatch(r'\d+',story_id):return None
-        response=await client.get(
-            'https://www.wattpad.com/api/v3/stories/'+story_id,
-            params={'fields':'id,title,cover,numParts,user(username),parts(id,title,url)'},
-            headers={'Accept':'application/json'})
+        if not story_id and part:
+            pid=part.group(1)
+            for endpoint,fields in [
+                ("api/v3/story_parts/"+pid,"groupId,group(id,title,cover,parts(id,title),user(username))"),
+                ("v4/parts/"+pid,"group(id,title,cover,parts(id,title),user(username))")
+            ]:
+                response=await client.get("https://www.wattpad.com/"+endpoint,params={"fields":fields},headers={"Accept":"application/json"})
+                if response.status_code!=200:continue
+                data=response.json()
+                group=data.get("group") or {}
+                story_id=str(data.get("groupId") or group.get("id") or "")
+                if story_id:break
+        if not story_id or not story_id.isdigit():return None
+        fields="id,title,cover,description,numParts,user(username),parts(id,title,url,text_url)"
+        response=await client.get("https://www.wattpad.com/api/v3/stories/"+story_id,params={"fields":fields},headers={"Accept":"application/json"})
         if response.status_code!=200:return None
         data=response.json()
-        if not isinstance(data,dict) or not isinstance(data.get('parts'),list):return None
+        if not isinstance(data,dict) or not isinstance(data.get("parts"),list):return None
         parts=[]
-        for part in data['parts']:
-            if not isinstance(part,dict):continue
-            identifier=str(part.get('id') or '')
-            if not re.fullmatch(r'\d{6,}',identifier):continue
-            link=normalized_url(url,part.get('url') or ('https://www.wattpad.com/'+identifier))
-            if link and re.fullmatch(r'/\d{6,}(?:-[^/]*)?/?',urlparse(link).path):
-                parts.append({'title':str(part.get('title') or 'Chương '+str(len(parts)+1))[:180],'url':link})
-        user=data.get('user') if isinstance(data.get('user'),dict) else {}
-        return {'parts':parts,'cover':data.get('cover'),'title':data.get('title'),'author':user.get('username',''),'story_url':'https://www.wattpad.com/story/'+story_id,'numParts':data.get('numParts')}
+        for entry in data["parts"]:
+            pid=str(entry.get("id") or "") if isinstance(entry,dict) else ""
+            if not re.fullmatch(r"\\d{6,}",pid):continue
+            candidate=entry.get("url") or ("https://www.wattpad.com/"+pid)
+            link=normalized_url("https://www.wattpad.com/",candidate)
+            if not link:link="https://www.wattpad.com/"+pid
+            item={"title":str(entry.get("title") or "Chương "+str(len(parts)+1))[:180],"url":link}
+            text_url=entry.get("text_url")
+            if isinstance(text_url,dict):
+                # Metadata only; the batch endpoint validates and fetches public text.
+                text_url=text_url.get("text")
+            if isinstance(text_url,str) and text_url.startswith("https://") and urlparse(text_url).hostname in ("www.wattpad.com","wattpad.com"):
+                item["text_url"]=text_url
+            parts.append(item)
+        user=data.get("user") if isinstance(data.get("user"),dict) else {}
+        return {"parts":parts,"cover":data.get("cover"),"description":data.get("description") or "","title":data.get("title"),"author":user.get("username",""),"story_url":"https://www.wattpad.com/story/"+story_id,"numParts":data.get("numParts")}
     except (httpx.HTTPError,ValueError,TypeError,KeyError,AttributeError):return None
+
 
 async def wattpad_story_archive(client,story_url):
     """Fetch publicly available story text ZIP, as used by WattpadDownloader."""
