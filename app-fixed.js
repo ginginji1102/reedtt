@@ -259,7 +259,7 @@ async function rememberDisplayedCover(img,url){
  }catch(e){console.debug('Ảnh hiển thị không cho phép đọc pixel, sẽ dùng ảnh đã tải qua proxy',e)}
 }
 
-async function imageBytes(url){
+async function imageBytes(url,coverMode=false){
  if(!url)return null;
  if(imageCache.has(url))return imageCache.get(url);
  const fetchBlob=async(proxy,timeout)=>{
@@ -271,7 +271,8 @@ async function imageBytes(url){
  };
  let blob=null;
  for(let attempt=0;attempt<2&&!blob;attempt++){
-  try{blob=await fetchBlob(attempt!==0,attempt===0?4500:14000)}
+  const wordpressCover=coverMode&&/^https:\/\/tichvulam\.wordpress\.com\/wp-content\/uploads\//i.test(url);
+  try{blob=await fetchBlob(wordpressCover?attempt===0:attempt!==0,wordpressCover?(attempt===0?45000:6000):(attempt===0?4500:coverMode?45000:14000))}
   catch(e){console.warn('Thử tải ảnh '+(attempt+1)+'/2',url,e.message)}
  }
  if(!blob)return null;
@@ -292,13 +293,13 @@ async function coverBytes(){
   if(displayedCoverBytes)return displayedCoverBytes;
  }
  if(navy&&!url)throw Error('NavyTeams chưa trả về URL ảnh bìa. Hãy thu thập lại thông tin truyện.');
- let result=await imageBytes(url);
+ let result=await imageBytes(url,true);
  // Verified cover for Nhất phẩm phu nhân on tichvulam WordPress.
  // Only use this fallback for this story, never for other books on the blog.
  const isTichVuLamBook=(()=>{try{const u=new URL(storyUrl);return u.hostname==='tichvulam.wordpress.com'&&/nhat-pham-phu-nhan/i.test(u.pathname)}catch{return false}})();
  if(!result&&isTichVuLamBook){
   const verified='https://tichvulam.wordpress.com/wp-content/uploads/2017/01/7_554763_655ee55ad21bd19.jpg';
-  result=await imageBytes(verified);
+  result=await imageBytes(verified,true);
   if(result){storyMeta.cover=verified;displayedCoverBytes=result}
  }
  // Verified NavyTeams cover for this specific story, never use for other titles.
