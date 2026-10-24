@@ -92,7 +92,7 @@ async function loadStory(){
    }
   }else data=await api('/discover',{url:u.href});
   discovered=data.chapters||[];
-  storyMeta={title:data.title||"",author:data.author||"",description:data.description||"",categories:data.categories||[],cover:data.cover||""};
+  storyMeta={title:data.title||"",author:data.author||"",description:data.description||"",categories:data.categories||[],cover:data.cover||"",story_url:data.story_url||""};
   const meta=$("storymeta");meta.replaceChildren();
   const layout=document.createElement("div");layout.className="story-meta-layout";
   const details=document.createElement("div");details.className="story-meta-details";
@@ -120,13 +120,13 @@ async function loadChapters(){
  if(!discovered.length){status.textContent='Hãy tìm danh sách chương trước.';return}
  if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>discovered.length){status.textContent='Phạm vi chương không hợp lệ.';return}
  activeDownload=true;btn.disabled=true;
- const url=$('url').value.trim(),include_images=true;
+ const url=storyMeta.story_url||$('url').value.trim(),include_images=true;
  const previous=new Map(downloaded.map(c=>[c.url,c]));
  downloaded=[];
  const total=end-start+1;
  let failures=0;
  try{
-  const chunkSize=new URL(url).hostname.endsWith('giatocvuongtai.com')?2:10;
+  const chunkSize=new URL(url).hostname.endsWith('giatocvuongtai.com')?2:new URL(url).hostname.endsWith('wattpad.com')?5:10;
   for(let from=start;from<=end;from+=chunkSize){
    const to=Math.min(from+chunkSize-1,end),items=discovered.slice(from-1,to);
    const cached=items.map(item=>previous.get(item.url));
