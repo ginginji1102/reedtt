@@ -899,7 +899,17 @@ async def image(req:ReadRequest):
     if not await public_image_host(u.hostname):raise HTTPException(400,"Máy chủ ảnh không an toàn hoặc không truy cập được.")
     try:
         async with httpx.AsyncClient(timeout=22,follow_redirects=False,trust_env=False) as client:
-            r=await client.get(url,headers={"User-Agent":"Mozilla/5.0","Referer":f"https://{u.hostname}/","Accept":"image/avif,image/webp,image/png,image/jpeg,*/*"})
+            headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36","Referer":f"https://{u.hostname}/","Accept":"image/avif,image/webp,image/png,image/jpeg,*/*"}
+            for attempt in range(3):
+                try:
+                    r=await client.get(url,headers=headers)
+                    if r.status_code in (429,500,502,503,504) and attempt<2:
+                        await asyncio.sleep(0.7*(attempt+1))
+                        continue
+                    break
+                except (httpx.ConnectError,httpx.TimeoutException):
+                    if attempt==2:raise
+                    await asyncio.sleep(0.7*(attempt+1))
             r.raise_for_status()
             mime=r.headers.get("content-type","").split(";")[0].lower()
             data=r.content
