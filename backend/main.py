@@ -288,9 +288,9 @@ def wattpad_clean_text(value):
     """Normalize escaped paragraph markers only for Wattpad story text."""
     value=str(value or "")
     for _ in range(5):
-        updated=(value.replace("\\\\r\\\\n","\n").replace("\\\\n","\n")
-                     .replace("\\\\r","\n").replace("\\r\\n","\n")
-                     .replace("\\n","\n").replace("\\r","\n"))
+        updated=(value.replace("\\\r\\\n","\n").replace("\\\n","\n")
+                     .replace("\\\r","\n").replace("\r\n","\n")
+                     .replace("\n","\n").replace("\r","\n"))
         if updated==value:break
         value=updated
     value=value.replace("\xa0"," ").replace("\r\n","\n").replace("\r","\n")
@@ -315,7 +315,7 @@ def wattpad_story_text(html,base,include_images=False):
         for br in p.find_all('br'):br.replace_with('\n')
         value=p.get_text('',strip=False).replace('\xa0',' ').strip()
         value=re.sub(r'[ \t]+',' ',value)
-        value=value.replace('\\r\\n','\n').replace('\\n','\n').replace('\\r','\n')
+        value=value.replace('\r\n','\n').replace('\n','\n').replace('\r','\n')
         value=wattpad_clean_text(value)
         if value:paragraphs.append(value)
     return wattpad_clean_text('\n\n'.join(paragraphs))[:300000],images[:1000]
@@ -331,9 +331,9 @@ def truyenfull_clean_text(value):
     """Decode source-escaped paragraph separators without affecting other sources."""
     value=str(value or "")
     for _ in range(5):
-        updated=(value.replace("\\\\r\\\\n","\n").replace("\\\\n","\n")
-                     .replace("\\\\r","\n").replace("\\r\\n","\n")
-                     .replace("\\n","\n").replace("\\r","\n"))
+        updated=(value.replace("\\\r\\\n","\n").replace("\\\n","\n")
+                     .replace("\\\r","\n").replace("\r\n","\n")
+                     .replace("\n","\n").replace("\r","\n"))
         if updated==value:break
         value=updated
     value=value.replace("\xa0"," ").replace("\r\n","\n").replace("\r","\n")
@@ -389,7 +389,7 @@ def chapter_body(soup, source_url=''):
             return "\n\n"+content+"\n\n" if content else ""
         return "".join(walk(child) for child in node.children)
     content="".join(walk(child) for child in chapter.children)
-    content=content.replace("\\r\\n","\n").replace("\\n","\n").replace("\\r","\n")
+    content=content.replace("\r\n","\n").replace("\n","\n").replace("\r","\n")
     content=content.replace("\xa0"," ").replace("\r","")
     content=re.sub(r"[ \t]+"," ",content)
     content=re.sub(r" *\n *","\n",content)
@@ -679,8 +679,8 @@ async def discover(req:ReadRequest):
                         block.insert_after("\n\n")
                     candidate=copy.get_text("",strip=False)
                     candidate=re.sub(r"[ \\t]+"," ",candidate)
-                    candidate=re.sub(r" *\\n *","\\n",candidate)
-                    candidate=re.sub(r"\\n{3,}","\\n\\n",candidate).strip()
+                    candidate=re.sub(r" *\n *","\n",candidate)
+                    candidate=re.sub(r"\n{3,}","\n\n",candidate).strip()
                     if candidate and candidate not in summary_candidates:
                         summary_candidates.append(candidate)
             if summary_candidates:
@@ -848,8 +848,8 @@ async def image(req:ReadRequest):
             data=r.content
             # Some image hosts (including NavyTeams) return application/octet-stream
             # or another incorrect MIME for a valid PNG/JPEG/WebP file.
-            if data.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):mime="image/png"
-            elif data.startswith(b"\\xff\\xd8\\xff"):mime="image/jpeg"
+            if data.startswith(b"\x89PNG\r\n\x1a\n"):mime="image/png"
+            elif data.startswith(b"\xff\xd8\xff"):mime="image/jpeg"
             elif data.startswith(b"RIFF") and data[8:12]==b"WEBP":mime="image/webp"
             if mime not in ("image/jpeg","image/png","image/webp") or len(data)>5_000_000:
                 raise HTTPException(415,"Ảnh không hỗ trợ hoặc quá lớn.")
@@ -969,7 +969,7 @@ async def _render_page(url):
                   const body=document.querySelector('.reader-demo-body,.reader-content,.chapter-content,#chapter-content,[data-chapter-content]');
                   const ps=body?[...body.querySelectorAll('.chapter-paragraph')]:[];
                   const fallback=body&&!ps.length?[...body.querySelectorAll('p.reader-demo-para,p')]:[];
-                  const content=(ps.length?ps:fallback).map(p=>p.textContent.trim()).filter(Boolean).join('\\n\\n');
+                  const content=(ps.length?ps:fallback).map(p=>p.textContent.trim()).filter(Boolean).join('\n\n');
                   return {title,links,content};
                 }""")
                 return data
