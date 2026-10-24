@@ -177,8 +177,8 @@ def chapter_links(soup,base,story_path):
 async def wattpad_story_metadata(client,url):
     """Resolve both Wattpad story links and individual part links using public APIs."""
     path=urlparse(url).path
-    match=re.search(r"/story/(\\d+)",path)
-    part=re.match(r"/(\\d{6,})(?:-|/|$)",path)
+    match=re.search(r"/story/(\d+)",path)
+    part=re.match(r"/(\d{6,})(?:-|/|$)",path)
     story_id=match.group(1) if match else None
     try:
         if not story_id and part:
@@ -202,7 +202,7 @@ async def wattpad_story_metadata(client,url):
         parts=[]
         for entry in data["parts"]:
             pid=str(entry.get("id") or "") if isinstance(entry,dict) else ""
-            if not re.fullmatch(r"\\d{6,}",pid):continue
+            if not re.fullmatch(r"\d{6,}",pid):continue
             candidate=entry.get("url") or ("https://www.wattpad.com/"+pid)
             link=normalized_url("https://www.wattpad.com/",candidate)
             if not link:link="https://www.wattpad.com/"+pid
@@ -476,7 +476,7 @@ async def discover(req:ReadRequest):
                 if not chapters:
                     for a in soup.select("a[href]"):
                         link=normalized_url(base,a.get("href",""))
-                        if link and re.fullmatch(r"/\\d{6,}(?:-[^/]*)?/?",urlparse(link).path):
+                        if link and re.fullmatch(r"/\d{6,}(?:-[^/]*)?/?",urlparse(link).path):
                             chapters.append({"title":a.get_text(" ",strip=True)[:180] or "Chương "+str(len(chapters)+1),"url":link})
                 if chapters:
                     chapters=list({item["url"]:item for item in chapters}.values())
