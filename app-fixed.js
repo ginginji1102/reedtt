@@ -109,6 +109,13 @@ async function loadStory(){
   displayedCoverBytes=null;
   if(storyMeta.cover){const img=document.createElement("img");const coverUrl=storyMeta.cover;img.alt="Ảnh bìa truyện";img.className="story-meta-cover";img.referrerPolicy="no-referrer";img.loading="lazy";img.onload=()=>{void rememberDisplayedCover(img,coverUrl)};img.onerror=async()=>{img.onerror=null;try{const response=await fetch(API+"/image",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:coverUrl}),signal:AbortSignal.timeout(30000)});if(!response.ok)throw Error("Ảnh nguồn không tải được");const blob=await response.blob();if(!blob.type.startsWith("image/"))throw Error("Phản hồi không phải ảnh");const bytes={bytes:new Uint8Array(await blob.arrayBuffer()),mime:blob.type,ext:blob.type==="image/png"?"png":blob.type==="image/webp"?"webp":"jpg"};if(storyMeta.cover===coverUrl){displayedCoverBytes=bytes;imageCache.set(coverUrl,bytes)}const local=URL.createObjectURL(blob);img.onload=()=>{URL.revokeObjectURL(local)};img.onerror=()=>{URL.revokeObjectURL(local);img.style.display="none";img.title="Máy chủ ảnh bìa từ chối tải"};img.removeAttribute("crossorigin");img.src=local}catch(e){img.style.display="none";img.title=e.message||"Không tải được ảnh bìa"}};img.src=coverUrl;layout.append(img)}
   for(const [name,val] of [["Tên truyện",storyMeta.title],["Tác giả",storyMeta.author],["Thể loại",storyMeta.categories.join(", ")],["Mô tả",storyMeta.description]]){if(val){const p=document.createElement("p");const b=document.createElement("strong");b.textContent=name+": ";p.append(b,document.createTextNode(val));if(name==="Mô tả"&&val.length>450){p.style.maxHeight="9em";p.style.overflow="hidden";const toggle=document.createElement("button");toggle.type="button";toggle.className="alt";toggle.textContent="Xem thêm";toggle.style.marginBottom="12px";toggle.onclick=()=>{const expanded=p.style.maxHeight==="none";p.style.maxHeight=expanded?"9em":"none";toggle.textContent=expanded?"Xem thêm":"Thu gọn";toggle.setAttribute("aria-expanded",String(!expanded))};toggle.setAttribute("aria-expanded","false");details.append(p,toggle)}else details.append(p)}}
+  if(storyMeta.cover){
+   const choose=document.createElement('button');choose.type='button';choose.className='alt';choose.textContent='Chọn ảnh bìa từ máy';choose.style.marginTop='10px';
+   const picker=document.createElement('input');picker.type='file';picker.accept='image/png,image/jpeg,image/webp';picker.style.display='none';
+   choose.onclick=()=>picker.click();
+   picker.onchange=async()=>{try{await useLocalCover(picker.files?.[0])}catch(e){$('status').textContent='Lỗi ảnh bìa: '+e.message}finally{picker.value=''}};
+   details.append(choose,picker);
+  }
   layout.append(details);meta.append(layout);
   downloaded=[];
   if(data.title)$('title').value=data.title;
@@ -245,6 +252,23 @@ function bookParagraphs(d){
 const get=()=>({title:cleanSourceMarks($('title').value.trim()||'Truyện mẫu'),author:cleanSourceMarks($('author').value.trim()),body:[storyMeta.categories?.length?'Thể loại: '+storyMeta.categories.join(', '):'',storyMeta.description?'Giới Thiệu\n'+storyMeta.description:'',$('content').value].filter(Boolean).join('\n\n')});
 const imageCache=new Map();
 let displayedCoverBytes=null;
+async function useLocalCover(file){
+ if(!file)return;
+ if(file.size>5000000)throw Error('Ảnh bìa được chọn lớn hơn 5 MB.');
+ let blob=file;
+ if(file.type==='image/webp'){
+  const bmp=await createImageBitmap(file),canvas=document.createElement('canvas');
+  canvas.width=bmp.width;canvas.height=bmp.height;canvas.getContext('2d').drawImage(bmp,0,0);bmp.close();
+  blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+ }
+ if(!blob||!['image/png','image/jpeg'].includes(blob.type))throw Error('Chỉ hỗ trợ ảnh bìa PNG, JPG hoặc WebP.');
+ displayedCoverBytes={bytes:new Uint8Array(await blob.arrayBuffer()),mime:blob.type,ext:blob.type==='image/png'?'png':'jpg'};
+ if(storyMeta.cover)imageCache.set(storyMeta.cover,displayedCoverBytes);
+ const img=document.querySelector('#storymeta img.story-meta-cover');
+ if(img){const old=img.dataset.localObjectUrl;if(old)URL.revokeObjectURL(old);const objectUrl=URL.createObjectURL(blob);img.dataset.localObjectUrl=objectUrl;img.onload=null;img.onerror=null;img.src=objectUrl;img.style.display='block'}
+ $('status').textContent='Đã chọn ảnh bìa từ máy. Có thể tạo file ngay.';
+}
+
 async function rememberDisplayedCover(img,url){
  try{
   if(!img.naturalWidth||!img.naturalHeight)return;
@@ -296,23 +320,7 @@ async function coverBytes(){
   const verified='https://navyteams.com/storage/story_avatars/hJfMZ5rG6r5MCNqr73ryMC3kcqtludEyz6qG0s3j.png';
   if(url!==verified){result=await imageBytes(verified);if(result)storyMeta.cover=verified}
  }
- if(!result&&url){
-  const chosen=await new Promise(resolve=>{
-   const picker=document.createElement('input');picker.type='file';picker.accept='image/png,image/jpeg,image/webp';
-   picker.style.display='none';document.body.append(picker);
-   picker.onchange=()=>{const file=picker.files?.[0]||null;picker.remove();resolve(file)};
-   picker.oncancel=()=>{picker.remove();resolve(null)};
-   picker.click();
-  });
-  if(chosen){
-   if(chosen.size>5000000)throw Error('Ảnh bìa được chọn lớn hơn 5 MB.');
-   const blob=chosen.type==='image/webp'?await (async()=>{const bmp=await createImageBitmap(chosen);const canvas=document.createElement('canvas');canvas.width=bmp.width;canvas.height=bmp.height;canvas.getContext('2d').drawImage(bmp,0,0);bmp.close();return await new Promise(resolve=>canvas.toBlob(resolve,'image/png'))})():chosen;
-   if(!blob||!['image/png','image/jpeg'].includes(blob.type))throw Error('Chỉ hỗ trợ ảnh bìa PNG, JPG hoặc WebP.');
-   result={bytes:new Uint8Array(await blob.arrayBuffer()),mime:blob.type,ext:blob.type==='image/png'?'png':'jpg'};
-   displayedCoverBytes=result;
-  }
- }
- if(url&&!result)throw Error('Không tải được ảnh bìa từ '+new URL(url).hostname+'. Bạn có thể lưu ảnh từ trang nguồn rồi thử xuất lại và chọn ảnh trong cửa sổ chọn tệp.');
+ if(url&&!result)throw Error('Không tải được ảnh bìa tự động. Hãy bấm “Chọn ảnh bìa từ máy” trong phần Thông tin trang truyện, rồi nhấn tạo file lại.');
  return result;
 }
 async function chapterImages(){
