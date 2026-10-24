@@ -261,33 +261,27 @@ async def wattpad_story_archive(client,story_url):
     except (httpx.HTTPError,ValueError,OSError,zipfile.BadZipFile):return None
 
 def wattpad_story_text(html,base,include_images=False):
-    """Only retain actual p tags from Wattpad's dedicated story-text archive."""
-    from bs4 import Tag
+    """Read public Wattpad part HTML, including images outside paragraph tags."""
     soup=BeautifulSoup(html,'html.parser')
     root=soup.body or soup
     paragraphs=[]
     images=[]
-    # Images can be standalone elements outside paragraphs.
     if include_images:
-        for img in root.select('img'):
-            src=img.get('data-src') or img.get('data-original') or img.get('src')
+        for img in root.select('img,source'):
+            src=(img.get('data-src') or img.get('data-original') or img.get('data-url') or img.get('src') or img.get('srcset','').split(',')[0].strip().split(' ')[0])
             if src:
                 resolved=image_url(base,src)
                 if resolved and resolved not in images:images.append(resolved)
     for p in root.find_all('p'):
         if p.find_parent(['aside','nav','footer','header','script','style']):continue
-        for img in p.find_all('img'):
-            src=img.get('data-src') or img.get('src')
-            if src and include_images:
-                resolved=image_url(base,src)
-                if resolved and resolved not in images:images.append(resolved)
         for bad in p.select('script,style,button,nav,aside'):bad.decompose()
-        for br in p.find_all('br'):br.replace_with('\n')
-        text=p.get_text('',strip=False).replace('\xa0',' ').strip()
-        text=re.sub(r'[ \t]+',' ',text)
-        text=re.sub(r'\n{3,}','\n\n',text)
-        if text:paragraphs.append(text)
-    return '\n\n'.join(paragraphs)[:300000],images[:1000]
+        for br in p.find_all('br'):br.replace_with('\\n')
+        value=p.get_text('',strip=False).replace('\\xa0',' ').strip()
+        value=re.sub(r'[ \\t]+',' ',value)
+        value=value.replace('\\\\r\\\\n','\\n').replace('\\\\n','\\n').replace('\\\\r','\\n')
+        value=re.sub(r'\\n{3,}','\\n\\n',value)
+        if value:paragraphs.append(value)
+    return '\\n\\n'.join(paragraphs)[:300000],images[:1000]
 
 def page_links(soup,base,story_path):
     result=[]
@@ -725,7 +719,7 @@ async def batch(req:BatchRequest):
                         part=archive.get(match.group(1)) if match else None
                         if part is not None:
                             text,imgs=wattpad_story_text(part,item['url'],req.include_images)
-                            return {'title':item['title'],'url':item['url'],'content':text,'images':imgs}
+                            if text or imgs:return {'title':item['title'],'url':item['url'],'content':text,'images':imgs}
                     if is_wattpad and item.get("text_url"):
                         try:
                             direct=await client.get(item["text_url"],timeout=25)
