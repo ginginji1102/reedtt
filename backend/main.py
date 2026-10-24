@@ -897,32 +897,35 @@ async def image(req:ReadRequest):
     if not url:raise HTTPException(400,"URL ảnh HTTPS không hợp lệ.")
     u=urlparse(url)
     if not await public_image_host(u.hostname):raise HTTPException(400,"Máy chủ ảnh không an toàn hoặc không truy cập được.")
-    try:
-        async with httpx.AsyncClient(timeout=22,follow_redirects=False,trust_env=False) as client:
-            headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36","Referer":f"https://{u.hostname}/","Accept":"image/avif,image/webp,image/png,image/jpeg,*/*"}
-            for attempt in range(3):
+    headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36","Referer":f"https://{u.hostname}/","Accept":"image/png,image/jpeg,image/webp,*/*"}
+    candidates=[url]
+    # A public image CDN can fetch the exact same NavyTeams avatar when Render
+    # cannot resolve/reach navyteams.com. Never use this for arbitrary URLs.
+    if u.hostname in ("navyteams.com","www.navyteams.com") and u.path.startswith("/storage/story_avatars/"):
+        from urllib.parse import quote
+        candidates.append("https://wsrv.nl/?url="+quote(url,safe=""))
+        candidates.append("https://i0.wp.com/"+u.hostname+u.path)
+    async with httpx.AsyncClient(timeout=22,follow_redirects=False,trust_env=False) as client:
+        last_error=None
+        for candidate in candidates:
+            for attempt in range(2):
                 try:
-                    r=await client.get(url,headers=headers)
-                    if r.status_code in (429,500,502,503,504) and attempt<2:
-                        await asyncio.sleep(0.7*(attempt+1))
+                    r=await client.get(candidate,headers=headers)
+                    if r.status_code in (429,500,502,503,504) and attempt==0:
+                        await asyncio.sleep(.7)
                         continue
-                    break
-                except (httpx.ConnectError,httpx.TimeoutException):
-                    if attempt==2:raise
-                    await asyncio.sleep(0.7*(attempt+1))
-            r.raise_for_status()
-            mime=r.headers.get("content-type","").split(";")[0].lower()
-            data=r.content
-            # Some image hosts (including NavyTeams) return application/octet-stream
-            # or another incorrect MIME for a valid PNG/JPEG/WebP file.
-            if data.startswith(b"\x89PNG\r\n\x1a\n"):mime="image/png"
-            elif data.startswith(b"\xff\xd8\xff"):mime="image/jpeg"
-            elif data.startswith(b"RIFF") and data[8:12]==b"WEBP":mime="image/webp"
-            if mime not in ("image/jpeg","image/png","image/webp") or len(data)>5_000_000:
-                raise HTTPException(415,"Ảnh không hỗ trợ hoặc quá lớn.")
-            return Response(data,media_type=mime,headers={"Cache-Control":"public, max-age=3600"})
-    except httpx.HTTPError as exc:
-        raise HTTPException(502,"Không tải được ảnh từ máy chủ nguồn.") from exc
+                    r.raise_for_status()
+                    data=r.content
+                    mime=""
+                    if data.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):mime="image/png"
+                    elif data.startswith(b"\\xff\\xd8\\xff"):mime="image/jpeg"
+                    elif data.startswith(b"RIFF") and data[8:12]==b"WEBP":mime="image/webp"
+                    if not mime or len(data)>5_000_000:raise ValueError("Ảnh không hợp lệ hoặc quá 5MB")
+                    return Response(data,media_type=mime,headers={"Cache-Control":"public, max-age=3600"})
+                except (httpx.HTTPError,ValueError) as exc:
+                    last_error=exc
+                    if attempt==0:await asyncio.sleep(.4)
+        raise HTTPException(502,"Không tải được ảnh bìa từ nguồn và các máy chủ ảnh dự phòng.") from last_error
 
 # Convert the actual generated Word document to a readable, Unicode PDF.
 class ConvertWordRequest(BaseModel):
