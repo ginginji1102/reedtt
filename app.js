@@ -85,12 +85,12 @@ async function loadStory(){
   let data;
   if(u.hostname==='giatocvuongtai.com'||u.hostname.endsWith('.giatocvuongtai.com')){
    status.textContent='Đang mở trang bằng Playwright trên Render...';
-   try{data=await api('/render-discover',{url:u.href})}
+   try{data=await api('/render-discover',{url:u.href,source:$('source').value})}
    catch(e){
     if(e instanceof TypeError||/Failed to fetch|NetworkError|Load failed/i.test(e.message||''))throw Error('Trình duyệt không được phép đọc trực tiếp nguồn này (có thể do CORS). Cần tiện ích trình duyệt có quyền truy cập trang nguồn. Không thể giải quyết bằng Render.');
     throw e;
    }
-  }else data=await api('/discover',{url:u.href});
+  }else data=await api('/discover',{url:u.href,source:$('source').value});
   discovered=data.chapters||[];
   storyMeta={title:data.title||"",author:data.author||"",description:data.description||"",categories:data.categories||[],cover:data.cover||"",story_url:data.story_url||""};
   const meta=$("storymeta");meta.replaceChildren();
@@ -145,8 +145,8 @@ async function loadChapters(){
      for(let attempt=1;attempt<=maxAttempts;attempt++){
       try{
        const data=host.endsWith('giatocvuongtai.com')
-        ?await api('/render-batch',{url,start:from,end:to,chapters:items,include_images})
-        :await api('/batch',{url,start:from,end:to,chapters:items,include_images});
+        ?await api('/render-batch',{url,start:from,end:to,chapters:items,include_images,source:$('source').value})
+        :await api('/batch',{url,start:from,end:to,chapters:items,include_images,source:$('source').value});
        if(!Array.isArray(data.chapters)||data.chapters.length!==items.length)throw Error('Phản hồi chưa đầy đủ');
        result=data.chapters;break;
       }catch(e){lastError=e;if(attempt<maxAttempts)await sleep(host.endsWith('wattpad.com')?1500*attempt:700*attempt)}
