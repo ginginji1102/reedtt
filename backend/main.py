@@ -624,8 +624,16 @@ async def discover(req:ReadRequest):
                     sub,_=await get_page(client,page)
                     return chapter_links(sub,page,story_path)
                 except (httpx.HTTPError,HTTPException):return []
-            for group in await asyncio.gather(*(listing(p) for p in pages[:12])):
-                for x in group:found[x["url"]]=x
+            # Do not refetch the same pagination URL or reparse pages when the
+            # main page already exposes the complete chapter list.
+            pending=list(dict.fromkeys(p for p in pages[:12] if p!=base))
+            if pending:
+                limiter=asyncio.Semaphore(6)
+                async def limited_listing(page):
+                    async with limiter:
+                        return await listing(page)
+                for group in await asyncio.gather(*(limited_listing(p) for p in pending)):
+                    for x in group:found[x["url"]]=x
             def meta(selector):
                 t=soup.select_one(selector)
                 return (t.get("content") or "").strip() if t else ""
