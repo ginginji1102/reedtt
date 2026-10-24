@@ -285,6 +285,19 @@ async def wattpad_story_archive(client,story_url):
             return result if result else None
     except (httpx.HTTPError,ValueError,OSError,zipfile.BadZipFile):return None
 
+def wattpad_clean_text(value):
+    """Normalize escaped paragraph markers only for Wattpad story text."""
+    value=str(value or "")
+    for _ in range(5):
+        updated=(value.replace("\\\\r\\\\n","\n").replace("\\\\n","\n")
+                     .replace("\\\\r","\n").replace("\\r\\n","\n")
+                     .replace("\\n","\n").replace("\\r","\n"))
+        if updated==value:break
+        value=updated
+    value=value.replace("\xa0"," ").replace("\r\n","\n").replace("\r","\n")
+    value=re.sub(r"[ \t]*\n[ \t]*","\n",value)
+    return re.sub(r"\n{3,}","\n\n",value).strip()
+
 def wattpad_story_text(html,base,include_images=False):
     """Read public Wattpad part HTML, including images outside paragraph tags."""
     soup=BeautifulSoup(html,'html.parser')
@@ -304,9 +317,9 @@ def wattpad_story_text(html,base,include_images=False):
         value=p.get_text('',strip=False).replace('\xa0',' ').strip()
         value=re.sub(r'[ \t]+',' ',value)
         value=value.replace('\\r\\n','\n').replace('\\n','\n').replace('\\r','\n')
-        value=re.sub(r'\n{3,}','\n\n',value)
+        value=wattpad_clean_text(value)
         if value:paragraphs.append(value)
-    return '\n\n'.join(paragraphs)[:300000],images[:1000]
+    return wattpad_clean_text('\n\n'.join(paragraphs))[:300000],images[:1000]
 
 def page_links(soup,base,story_path):
     result=[]
@@ -777,6 +790,7 @@ async def batch(req:BatchRequest):
                         # Public chapter HTML is a second source of inline illustrations.
                         extra_text,extra_images=wattpad_story_text(str(soup),base,req.include_images)
                         if not content:content=extra_text
+                        content=wattpad_clean_text(content)
                         images=list(dict.fromkeys([*images,*extra_images]))
                     if is_wattpad and not content and not images:
                         return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"Wattpad không cung cấp nội dung chương qua HTML hoặc bản ZIP công khai; chương có thể bị khóa hoặc nguồn từ chối máy chủ."}
