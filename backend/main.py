@@ -833,8 +833,8 @@ async def batch(req:BatchRequest):
         chosen=discovery["chapters"][req.start-1:req.end]
     if not chosen:raise HTTPException(404,"Không tìm thấy chương.")
     is_wattpad=(urlparse(req.url).hostname or '').lower().endswith('wattpad.com')
-    semaphore=asyncio.Semaphore(5)
-    async with httpx.AsyncClient(timeout=20,follow_redirects=False,limits=httpx.Limits(max_connections=6),headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"en-US,en;q=0.9"}) as client:
+    semaphore=asyncio.Semaphore(8 if not is_wattpad else 5)
+    async with httpx.AsyncClient(timeout=20,follow_redirects=False,limits=httpx.Limits(max_connections=10),headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"en-US,en;q=0.9"}) as client:
         archive_url=req.url
         if is_wattpad and not re.search(r"/story/\\d+",urlparse(req.url).path):
             info=await wattpad_story_metadata(client,req.url)
