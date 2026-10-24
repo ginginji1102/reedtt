@@ -806,10 +806,10 @@ async def discover(req:ReadRequest):
             def order(x):
                 label=x["title"].strip()
                 # Extras belong after the numbered main story chapters.
-                is_extra=bool(re.search(r"ngoại\\s*truyện|ngoai[-_\\s]*truyen|extra|番外",label,re.I))
-                match=re.search(r"(?:chương|chuong|chapter|chap|ngoại\\s*truyện|ngoai[-_\\s]*truyen|extra)[^0-9]{0,20}(\\d+)",label,re.I)
+                is_extra=bool(re.search(r"ngoại\s*truyện|ngoai[-_\s]*truyen|extra|番外",label,re.I))
+                match=re.search(r"(?:chương|chuong|chapter|chap|ngoại\s*truyện|ngoai[-_\s]*truyen|extra)[^0-9]{0,20}(\d+)",label,re.I)
                 if not match:
-                    match=re.search(r"(?:chuong|chapter|chap|ngoai-truyen|extra)[-_]?(\\d+)",urlparse(x["url"]).path,re.I)
+                    match=re.search(r"(?:chuong|chapter|chap|ngoai-truyen|extra)[-_]?(\d+)",urlparse(x["url"]).path,re.I)
                 number=int(match.group(1)) if match else 10**9
                 return (1 if is_extra else 0,number)
             if not (wattpad_data and wattpad_data['parts']):
