@@ -282,7 +282,7 @@ async function coverBytes(){
  if(navy&&!url)throw Error('NavyTeams chưa trả về URL ảnh bìa. Hãy thu thập lại thông tin truyện.');
  let result=await imageBytes(url);
  // Verified NavyTeams cover for this specific story, never use for other titles.
- if(!result&&navy&&new URL(storyUrl).pathname.replace(/\\/$/,'')==='/truyen/novel-bad-life'){
+ if(!result&&navy&&new URL(storyUrl).pathname.replace(/\/$/,'')==='/truyen/novel-bad-life'){
   const verified='https://navyteams.com/storage/story_avatars/hJfMZ5rG6r5MCNqr73ryMC3kcqtludEyz6qG0s3j.png';
   if(url!==verified){result=await imageBytes(verified);if(result)storyMeta.cover=verified}
  }
