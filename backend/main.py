@@ -119,7 +119,11 @@ async def public_image_host(host):
     except (OSError,ValueError):return False
 
 async def get_page(client, url):
-    r=await client.get(url)
+    try:
+        r=await client.get(url)
+    except (httpx.ConnectError,httpx.ConnectTimeout,httpx.ReadTimeout):
+        await asyncio.sleep(0.6)
+        r=await client.get(url)
     for _ in range(4):
         if r.status_code not in (301,302,303,307,308):break
         target=normalized_url(str(r.url),r.headers.get("location",""))
