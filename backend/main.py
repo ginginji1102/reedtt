@@ -723,16 +723,13 @@ async def discover(req:ReadRequest):
                     raw=meta("meta[property='og:image']") or meta("meta[name='twitter:image']")
                     cover=image_url(base,raw) if raw else None
             if host.endswith("navyteams.com"):
-                # Story covers are served under /storage/story_avatars/, not
-                # necessarily under the generic .book-cover/.cover selectors.
-                avatar=soup.select_one('img[src*="/storage/story_avatars/"],img[data-src*="/storage/story_avatars/"],img[data-original*="/storage/story_avatars/"],meta[property="og:image"][content*="/storage/story_avatars/"]')
+                # Read the actual <img src> used by NavyTeams story avatars.
+                # Do not hardcode a cover for one particular story.
+                avatar=soup.select_one('img[src*="/storage/story_avatars/"],img[data-src*="/storage/story_avatars/"],img[data-original*="/storage/story_avatars/"]')
                 if avatar:
-                    raw=avatar.get("data-src") or avatar.get("data-original") or avatar.get("src") or avatar.get("content") or ""
+                    raw=avatar.get("src") or avatar.get("data-src") or avatar.get("data-original") or ""
                     candidate=image_url(base,raw)
                     if candidate:cover=candidate
-            if host.endswith("navyteams.com") and urlparse(base).path.rstrip("/").startswith("/truyen/novel-bad-life"):
-                # Verified cover URL provided for this specific story.
-                cover="https://navyteams.com/storage/story_avatars/hJfMZ5rG6r5MCNqr73ryMC3kcqtludEyz6qG0s3j.png"
             if host.endswith("navyteams.com"):
                 # NavyTeams tags are not a comma-separated metadata dump:
                 # generic .tags may contain popularity counts, authors and repeated tags.
