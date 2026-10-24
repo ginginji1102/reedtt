@@ -271,15 +271,23 @@ async function chapterImages(){
  for(let i=0;i<downloaded.length;i++)
   for(const url of (downloaded[i].images||[]))jobs.push({chapter:i,url});
  const result=new Array(jobs.length);
- let cursor=0,done=0;
  const status=$('status');
- const workers=Array.from({length:Math.min(4,jobs.length)},async()=>{
+ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+ // Large Wattpad image sets need gentle, sequential requests to avoid throttling.
+ const storyHost=(()=>{try{return new URL(storyMeta.story_url||$('url').value).hostname.toLowerCase()}catch{return ''}})();
+ const slowMode=jobs.length>=80||storyHost.includes('wattpad.com');
+ const concurrency=slowMode?1:Math.min(3,jobs.length);
+ let cursor=0,done=0,successful=0;
+ const workers=Array.from({length:concurrency},async()=>{
   while(cursor<jobs.length){
    const index=cursor++,job=jobs[index];
-   try{const data=await imageBytes(job.url);if(data)result[index]={chapter:job.chapter,...data}}
-   catch(e){console.warn('Không tải được ảnh chương',job.url,e)}
+   try{
+    const data=await imageBytes(job.url);
+    if(data){result[index]={chapter:job.chapter,...data};successful++}
+   }catch(e){console.warn('Không tải được ảnh chương',job.url,e)}
    done++;
-   if(done%3===0||done===jobs.length)status.textContent='Đang tải ảnh '+done+'/'+jobs.length+' để tạo file ('+result.filter(Boolean).length+' ảnh thành công)...';
+   status.textContent='Đang tải ảnh '+done+'/'+jobs.length+' ('+successful+' ảnh thành công)...';
+   if(slowMode&&cursor<jobs.length)await pause(900);
   }
  });
  await Promise.all(workers);
