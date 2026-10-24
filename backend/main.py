@@ -850,7 +850,7 @@ async def luotnovel_discover(url):
                 sub,_=await get_page(client,link)
                 collect(sub,link)
             except (HTTPException,httpx.HTTPError):pass
-    if not found:
+    if len(found)<3:
         # LuotNovel loads its table of contents asynchronously into #nt_listchapter.
         try:
             async with await _render_browser() as playwright:
@@ -872,7 +872,7 @@ async def luotnovel_discover(url):
                     await browser.close()
         except Exception:
             pass
-    if not found:
+    if len(found)<3:
         try:
             rendered=await _render_page(url)
             for item in rendered.get("links",[]):
