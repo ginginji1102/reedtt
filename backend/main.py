@@ -136,6 +136,8 @@ def chapter_links(soup,base,story_path):
     found={}
     host=(urlparse(base).hostname or "").lower()
     selectors=".list-chapter a[href],#list-chapter a[href],.chapter-list a[href],.list-chapters a[href],ul.list-chapter a[href],#chaptersList a[href],a[href*='chuong-'],a[href*='chapter-']"
+    if host.endswith("navyteams.com"):
+        selectors+=",#chaptersList a[href],#chapter-list a[href],.chapter-list-container a[href],a[href*='ngoai-truyen'],a[href*='ngoai_truyen']"
     if host.endswith("wattpad.com"):
         selectors+=",a[href^='/'][href*='-'],a[href*='wattpad.com/']"
     elif host.endswith("inkitt.com"):
@@ -188,6 +190,9 @@ def chapter_links(soup,base,story_path):
         elif host.endswith("luotnovel1.site"):
             if target.hostname != host or not re.search(r"(?:chuong|chapter|chap)[-_ /]?\d+|/\d+(?:/|$)",target.path,re.I):
                 if not re.search(r"^(?:chương|chuong|chapter)\s*\d+",label,re.I):continue
+        elif host.endswith("navyteams.com"):
+            if target.hostname!=host or not target.path.startswith(story_path.rstrip("/")+"/"):continue
+            if not re.search(r"(?:chương|chuong|chapter|ngoại\\s*truyện|ngoai[-_\\s]*truyen)\\s*[-:#]?\\s*\\d+|/(?:chuong|chapter|ngoai[-_]?truyen)[-_]?\\d+",label+" "+href,re.I):continue
         elif not re.search(r"(chương|chuong|chapter)\s*[-:]?\s*\d+|/(chuong|chapter)[-_]?\d+",label+" "+href,re.I):continue
         if host.endswith("navyteams.com"):
             # Chapter list entries may append publication dates in child elements.
@@ -766,6 +771,9 @@ async def discover(req:ReadRequest):
             chapters=list(found.values())
             def order(x):
                 m=re.search(r"(?:chương|chuong|chapter)[^0-9]{0,12}(\d+)",x["title"]+" "+x["url"],re.I)
+                if (urlparse(base).hostname or "").lower().endswith("navyteams.com"):
+                    extra=re.search(r"(?:ngoại\\s*truyện|ngoai[-_\\s]*truyen)[^0-9]{0,12}(\\d+)",x["title"]+" "+x["url"],re.I)
+                    if extra:return 100000+int(extra.group(1))
                 return int(m.group(1)) if m else 10**9
             if not (wattpad_data and wattpad_data['parts']):chapters.sort(key=order)
             return {"title":title[:200],"author":author.get_text(" ",strip=True)[:120] if author else "","description":description[:15000],"cover":cover,"categories":categories[:30],"chapters":chapters[:1000],"count":len(chapters),"truncated":len(pages)>12 or len(chapters)>1000}
