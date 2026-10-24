@@ -499,14 +499,17 @@ html[data-theme="day"] header{background:linear-gradient(105deg,rgba(161,210,242
  }
 }
 
-/* Hide the single bright star beside “ebook” on narrow phone screens only. */
-@media (max-width: 700px){
- html:not([data-theme="day"]) main > h1{position:relative;isolation:isolate}
- html:not([data-theme="day"]) main > h1::before{
-  content:"";position:absolute;z-index:-1;pointer-events:none;
-  width:18px;height:18px;left:34%;top:44%;
-  background:radial-gradient(circle,#060c2a 0%,#060c2a 45%,rgba(6,12,42,0) 76%);
+
+}
+
+/* Phone-only Night Mode: cover the bright star beside the ebook heading. */
+@media(max-width:700px){
+ html:not([data-theme="day"]) body::after{
+  content:"";position:fixed;pointer-events:none;z-index:0;
+  left:calc(34% - 13px);top:calc(74px + 25vw);width:26px;height:26px;
+  background:radial-gradient(ellipse at center,#080e30 0%,#080e30 42%,rgba(8,14,48,0) 74%);
  }
+ html:not([data-theme="day"]) header,html:not([data-theme="day"]) main{position:relative;z-index:1}
 }
 </style></head>
 <body><header><a href="./" class="brand-home" onclick="event.preventDefault();window.location.reload();" aria-label="Tải lại trang Novel Box" title="Nhấn để tải lại trang"><img src="novel-box-logo.svg?v=original-eyes-3" alt="" style="width:44px;height:44px;object-fit:contain;vertical-align:middle;margin-right:10px"><b>Novel Box</b></a><div class="theme-switch" role="group" aria-label="Chế độ giao diện"><button type="button" id="theme-day" aria-pressed="false">☀ Day</button><button type="button" id="theme-night" aria-pressed="true">☾ Night</button></div></header><main><h1>Tạo ebook từ nội dung truyện</h1><p class="lead">Dán một link truyện · Tìm chương tự động · Xuất Word, EPUB</p>
