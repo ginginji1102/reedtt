@@ -16,11 +16,36 @@ app.add_middleware(CORSMiddleware, allow_origins=["https://yuu110299.github.io",
 
 ALLOWED = ("truyenfull.live", "wattpad.com", "wordpress.com", "navyteams.com", "inkitt.com", "giatocvuongtai.com", "luotnovel1.site")
 SELECTORS = ("#chapter-content", "#chapterContent", "#chapter-content-body", ".chapter-reading", ".chapter-body", ".chapter-text", ".reading-content", ".entry-content", ".chapter-content", ".reading-content", ".entry-content", ".chapter-c", "article", "[itemprop=articleBody]")
+SOURCE_HOSTS = {
+    "wattpad.com": "wattpad",
+    "truyenfull.live": "truyenfull",
+    "wordpress.com": "wordpress",
+    "navyteams.com": "navyteams",
+    "giatocvuongtai.com": "giatocvuongtai",
+    "luotnovel1.site": "luotnovel",
+    "inkitt.com": "inkitt",
+}
+
+def source_for_url(url: str) -> str:
+    host=(urlparse(url).hostname or "").lower()
+    for domain,source in SOURCE_HOSTS.items():
+        if host==domain or host.endswith("."+domain):
+            return source
+    raise HTTPException(400,"Nguồn truyện chưa được hỗ trợ.")
+
+def check_selected_source(url: str, source: str | None):
+    detected=source_for_url(url)
+    if source and source not in ("auto",detected):
+        raise HTTPException(400,"Nguồn đã chọn không khớp URL truyện.")
+    return detected
+
 class ReadRequest(BaseModel):
     url: str
+    source: str | None = None
 
 class BatchRequest(BaseModel):
     url: str
+    source: str | None = None
     start: int = 1
     end: int = 20
     include_images: bool = False
@@ -483,6 +508,7 @@ async def inkitt_info(client, story_url):
 
 @app.post("/discover")
 async def discover(req:ReadRequest):
+    source=check_selected_source(req.url,req.source)
     u=urlparse(req.url.strip())
     if u.scheme!="https" or not u.hostname or not allowed(u.hostname.lower()) or u.port not in (None,443):
         raise HTTPException(400,"Nguồn chưa được hỗ trợ hoặc URL không hợp lệ.")
@@ -691,6 +717,7 @@ async def discover(req:ReadRequest):
 
 @app.post("/batch")
 async def batch(req:BatchRequest):
+    source=check_selected_source(req.url,req.source)
     if req.start<1 or req.end<req.start or req.end-req.start>=20:
         raise HTTPException(400,"Mỗi yêu cầu kỹ thuật hỗ trợ tối đa 20 chương; website tự chia đợt.")
     discovery=None
