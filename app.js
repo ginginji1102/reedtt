@@ -240,10 +240,7 @@ async function imageBytes(url){
  const data={bytes:new Uint8Array(await blob.arrayBuffer()),mime:blob.type,ext:blob.type==='image/png'?'png':'jpg'};
  imageCache.set(url,data);return data;
 }
-async function coverBytes(){
- const url=storyMeta.cover||((new URL(storyMeta.story_url||$('url').value,location.href)).pathname.startsWith('/truyen/novel-bad-life')?'https://navyteams.com/storage/story_avatars/hJfMZ5rG6r5MCNqr73ryMC3kcqtludEyz6qG0s3j.png':'');
- return await imageBytes(url);
-}
+async function coverBytes(){return await imageBytes(storyMeta.cover)}
 async function chapterImages(){
  const jobs=[];
  for(let i=0;i<downloaded.length;i++)
