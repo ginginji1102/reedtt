@@ -130,7 +130,7 @@ async function loadChapters(){
   for(let from=start;from<=end;from+=chunkSize){
    const to=Math.min(from+chunkSize-1,end),items=discovered.slice(from-1,to);
    const cached=items.map(item=>previous.get(item.url));
-   let result=cached.every(x=>x&&x.content)?cached:null;
+   let result=cached.every(x=>x&&(x.content||x.images?.length))?cached:null;
    if(!result){
     let lastError;
     for(let attempt=1;attempt<=(new URL(url).hostname.endsWith('giatocvuongtai.com')?2:5);attempt++){
@@ -159,10 +159,10 @@ async function loadChapters(){
     return;
    }
    downloaded.push(...result);
-   $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||'[Chương tải lỗi — xem thông báo trạng thái]')).join('\n\n\n');
+   $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||(x.images?.length?'[Chương gồm '+x.images.length+' ảnh]':'[Chương tải lỗi — xem thông báo trạng thái]'))).join('\n\n\n');
    status.textContent='Đã xử lý '+downloaded.length+'/'+total+' chương'+(failures?' · '+failures+' chương cần tải lại':'');
   }
-  const failed=downloaded.filter(x=>!x.content);
+  const failed=downloaded.filter(x=>!x.content&&!x.images?.length);
   if(failed.length && !new URL(url).hostname.endsWith('giatocvuongtai.com') && !failed.some(x=>/Inkitt.*(?:403|401|429)|Inkitt.*từ chối/i.test(x.error||''))){
    status.textContent='Đã quét '+total+' chương; đang thử tải lại '+failed.length+' chương bị lỗi...';
    for(let i=0;i<failed.length;i+=5){
@@ -172,10 +172,10 @@ async function loadChapters(){
      for(const chapter of data.chapters||[]){const index=downloaded.findIndex(x=>x.url===chapter.url);if(index>=0&&chapter.content)downloaded[index]=chapter}
     }catch(e){/* Keep the downloaded chapters and continue. */}
    }
-   $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||'[Chương tải lỗi — xem thông báo trạng thái]')).join('\n\n\n');
+   $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||(x.images?.length?'[Chương gồm '+x.images.length+' ảnh]':'[Chương tải lỗi — xem thông báo trạng thái]'))).join('\n\n\n');
   }
-  const missing=downloaded.filter(x=>!x.content).length;
-  const reasons=[...new Set(downloaded.filter(x=>!x.content).map(x=>x.error||'Không rõ nguyên nhân'))].slice(0,3);status.textContent='Hoàn thành '+(total-missing)+'/'+total+' chương.'+(missing?' Lỗi: '+reasons.join(' · ')+'. Bấm Tải nội dung để thử lại.':' Sẵn sàng xuất file.');
+  const missing=downloaded.filter(x=>!x.content&&!x.images?.length).length;
+  const reasons=[...new Set(downloaded.filter(x=>!x.content&&!x.images?.length).map(x=>x.error||'Không rõ nguyên nhân'))].slice(0,3);status.textContent='Hoàn thành '+(total-missing)+'/'+total+' chương.'+(missing?' Lỗi: '+reasons.join(' · ')+'. Bấm Tải nội dung để thử lại.':' Sẵn sàng xuất file.');
  }finally{activeDownload=false;btn.disabled=false}
 }
 $('fetchchapters').onclick=loadChapters;
