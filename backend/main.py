@@ -34,10 +34,9 @@ def source_for_url(url: str) -> str:
     raise HTTPException(400,"Nguồn truyện chưa được hỗ trợ.")
 
 def check_selected_source(url: str, source: str | None):
-    detected=source_for_url(url)
-    if source and source not in ("auto",detected) and source not in (domain for domain,name in SOURCE_HOSTS.items() if name==detected):
-        raise HTTPException(400,"Nguồn đã chọn không khớp URL truyện.")
-    return detected
+    # URL is the single source of truth. UI selection is a hint, never a reason
+    # to reject a valid supported link (including stale cached frontends).
+    return source_for_url(url)
 
 class ReadRequest(BaseModel):
     url: str
