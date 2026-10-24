@@ -105,9 +105,7 @@ async function loadStory(){
   $('end').value=discovered.length||1;
   $('chapterinfo').textContent='Đã tìm thấy '+discovered.length+' chương. '+(data.truncated?'Danh sách có thể chưa đầy đủ. ':'')+'Chọn phạm vi rồi nhấn “Tải nội dung các chương đã chọn”.';
   status.textContent=discovered.length?'Đã tìm được '+discovered.length+' chương. Đang tự tải nội dung...':'Chưa tìm được link chương từ mục lục. Nguồn có thể chặn máy chủ hoặc sử dụng cấu trúc khác.';
-  if(discovered.length){
-   try{await loadChapters()}catch(downloadError){$('status').textContent='Đã tìm '+discovered.length+' link chương, nhưng tải nội dung thất bại: '+(downloadError.message||downloadError);status.textContent='Đã tìm '+discovered.length+' link chương. Danh sách vẫn được giữ để thử tải lại.'}
-  }
+  if(discovered.length){$('status').textContent='Đã tìm '+discovered.length+' chương. Chọn khoảng chương rồi bấm Tải nội dung để bắt đầu; không tự tải toàn bộ.';}
  }catch(e){status.textContent='Lỗi tìm danh sách chương: '+e.message}
  finally{btn.disabled=false}
 }
@@ -143,7 +141,7 @@ async function loadChapters(){
     let result=cached.every(x=>x&&(x.content||x.images?.length))?cached:null;
     if(!result){
      let lastError;
-     const maxAttempts=host.endsWith('wattpad.com')?5:3;
+     const maxAttempts=host.endsWith('wattpad.com')?2:2;
      for(let attempt=1;attempt<=maxAttempts;attempt++){
       try{
        const data=host.endsWith('giatocvuongtai.com')
@@ -164,7 +162,7 @@ async function loadChapters(){
   downloaded=results.flat().map(ch=>{const old=previous.get(ch.url);return (!ch.content&&!ch.images?.length&&old&&(old.content||old.images?.length))?old:ch});
   $('content').value=downloaded.map(x=>x.title+'\\n\\n'+(x.content||(x.images?.length?'[Chương gồm '+x.images.length+' ảnh]':'[Chương tải lỗi — xem thông báo trạng thái]'))).join('\\n\\n\\n');
   const failed=downloaded.filter(x=>!x.content&&!x.images?.length);
-  if(failed.length&& !host.endsWith('giatocvuongtai.com')){
+  if(failed.length&& !host.endsWith('giatocvuongtai.com')&&!host.endsWith('wattpad.com')){
    status.textContent='Đang thử tải lại '+failed.length+' chương bị lỗi...';
    for(let i=0;i<failed.length;i+=3){
     try{
