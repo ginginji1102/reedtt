@@ -154,7 +154,7 @@ async function loadChapters(){
     }
     results[idx]=result;
     completed+=result.length;
-    status.textContent='Đã thu thập '+completed+'/'+total+' chương · '+Math.min(concurrency,ranges.length)+' luồng song song'+(failures?' · '+failures+' chương lỗi':'');
+    status.textContent='Đã thu thập '+completed+'/'+total+' chương';
    }
   }
   await Promise.all(Array.from({length:Math.min(concurrency,ranges.length)},()=>worker()));
