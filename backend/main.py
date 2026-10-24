@@ -1183,13 +1183,7 @@ async def luotnovel_discover(url):
         except HTTPException:
             pass
     return {"title":title,"author":"","chapters":list(found.values()),"count":len(found)}
-,size))
-        hidden=declarations.get('display')=='none' or declarations.get('visibility')=='hidden'
-        color=declarations.get('color','')
-        # The source hides noise in 1pt near-white spans and near-white paragraphs.
-        if hidden or (near_white(color) and (small or tag.name in ('p','div'))):
-            tag.decompose()
-    return chapter
+
 
 
 def chapter_body(soup, source_url=''):
