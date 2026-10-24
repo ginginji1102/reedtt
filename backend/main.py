@@ -723,10 +723,24 @@ async def discover(req:ReadRequest):
                 if not cover:
                     raw=meta("meta[property='og:image']") or meta("meta[name='twitter:image']")
                     cover=image_url(base,raw) if raw else None
-            categories=[a.get_text(" ",strip=True) for a in soup.select(".tag a,.tags a,.genres a,.genre a,.book-tags a,[itemprop=genre] a") if a.get_text(" ",strip=True)]
-            if not categories:
-                raw=label("[itemprop=genre],.genres,.genre,.book-tags")
-                categories=[x.strip() for x in raw.split(",") if x.strip()]
+            if host.endswith("navyteams.com"):
+                # NavyTeams tags are not a comma-separated metadata dump:
+                # generic .tags may contain popularity counts, authors and repeated tags.
+                raw_tags=[a.get_text(" ",strip=True) for a in soup.select("#storyInfo .tag a,#storyInfo .tags a,.story-info .tag a,.story-info .tags a,.novel-info .tag a,.novel-info .tags a") if a.get_text(" ",strip=True)]
+                categories=[]
+                seen_categories=set()
+                for tag in raw_tags:
+                    tag=tag.strip()
+                    if not tag or len(tag)>65 or re.fullmatch(r"[\\d\\s,.]+",tag):continue
+                    key=tag.casefold()
+                    if key not in seen_categories:
+                        seen_categories.add(key)
+                        categories.append(tag)
+            else:
+                categories=[a.get_text(" ",strip=True) for a in soup.select(".tag a,.tags a,.genres a,.genre a,.book-tags a,[itemprop=genre] a") if a.get_text(" ",strip=True)]
+                if not categories:
+                    raw=label("[itemprop=genre],.genres,.genre,.book-tags")
+                    categories=[x.strip() for x in raw.split(",") if x.strip()]
             chapters=list(found.values())
             def order(x):
                 m=re.search(r"(?:chương|chuong|chapter)[^0-9]{0,12}(\d+)",x["title"]+" "+x["url"],re.I)
