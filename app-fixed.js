@@ -285,7 +285,7 @@ async function coverBytes(){
  if(displayedCoverBytes&&url)return displayedCoverBytes;
  if(url&&imageCache.has(url))return imageCache.get(url);
  const img=document.querySelector('#storymeta img.story-meta-cover');
- if(navy&&img?.complete&&img.naturalWidth&&img.naturalHeight){
+ if(img?.complete&&img.naturalWidth&&img.naturalHeight){
   await rememberDisplayedCover(img,url);
   if(displayedCoverBytes)return displayedCoverBytes;
  }
@@ -296,7 +296,7 @@ async function coverBytes(){
   const verified='https://navyteams.com/storage/story_avatars/hJfMZ5rG6r5MCNqr73ryMC3kcqtludEyz6qG0s3j.png';
   if(url!==verified){result=await imageBytes(verified);if(result)storyMeta.cover=verified}
  }
- if(!result&&navy){
+ if(!result&&url){
   const chosen=await new Promise(resolve=>{
    const picker=document.createElement('input');picker.type='file';picker.accept='image/png,image/jpeg,image/webp';
    picker.style.display='none';document.body.append(picker);
@@ -312,7 +312,7 @@ async function coverBytes(){
    displayedCoverBytes=result;
   }
  }
- if(url&&!result)throw Error('Không tải được ảnh bìa từ '+new URL(url).hostname+'. Hãy lưu ảnh bìa từ trang nguồn và chọn ảnh khi cửa sổ chọn tệp xuất hiện.');
+ if(url&&!result)throw Error('Không tải được ảnh bìa từ '+new URL(url).hostname+'. Bạn có thể lưu ảnh từ trang nguồn rồi thử xuất lại và chọn ảnh trong cửa sổ chọn tệp.');
  return result;
 }
 async function chapterImages(){
