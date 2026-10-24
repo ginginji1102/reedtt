@@ -174,6 +174,29 @@ def chapter_links(soup,base,story_path):
         found[href]={"title":label[:180] or href.rsplit("/",1)[-1],"url":href}
     return list(found.values())
 
+def wattpad_html_details(soup):
+    import json
+    details={}
+    for script in soup.select('script[type="application/ld+json"]'):
+        try:
+            data=json.loads(script.string or script.get_text())
+            for item in (data if isinstance(data,list) else [data]):
+                if not isinstance(item,dict):continue
+                for source,dest in (("description","description"),("headline","title"),("image","cover")):
+                    value=item.get(source)
+                    if isinstance(value,dict):value=value.get("url")
+                    if isinstance(value,str) and value:details.setdefault(dest,value)
+                author=item.get("author")
+                if isinstance(author,dict):details.setdefault("author",author.get("name",""))
+        except (ValueError,TypeError,AttributeError):pass
+    if not details.get("description"):
+        meta=soup.select_one('meta[name="description"]')
+        if meta:details["description"]=meta.get("content","")
+    if not details.get("cover"):
+        meta=soup.select_one('meta[property="og:image"]')
+        if meta:details["cover"]=meta.get("content","")
+    return details
+
 async def wattpad_story_metadata(client,url):
     """Resolve both Wattpad story links and individual part links using public APIs."""
     path=urlparse(url).path
@@ -467,6 +490,12 @@ async def discover(req:ReadRequest):
         async with httpx.AsyncClient(timeout=25,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36","Accept":"application/json","Accept-Language":"en-US,en;q=0.9"}) as client:
             info=await wattpad_story_metadata(client,req.url)
             if info and info.get("parts"):
+                try:
+                    page,_=await get_page(client,info.get("story_url") or req.url)
+                    details=wattpad_html_details(page)
+                    for key in ("description","cover","title","author"):
+                        if details.get(key) and (key=="description" or not info.get(key)):info[key]=details[key]
+                except (HTTPException,httpx.HTTPError,ValueError):pass
                 return {"title":info.get("title") or "", "author":info.get("author") or "", "cover":info.get("cover") or "", "description":info.get("description") or "", "chapters":info["parts"],"count":len(info["parts"]),"story_url":info.get("story_url") or req.url}
         # Wattpad's API can return 403/429 while public story HTML still contains part links.
         try:
