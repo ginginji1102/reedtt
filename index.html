@@ -499,15 +499,12 @@ html[data-theme="day"] header{background:linear-gradient(105deg,rgba(161,210,242
  }
 }
 
-
-}
-
 /* Phone-only Night Mode: cover the bright star beside the ebook heading. */
 @media(max-width:700px){
  html:not([data-theme="day"]) body::after{
   content:"";position:fixed;pointer-events:none;z-index:0;
-  left:calc(34% - 13px);top:calc(74px + 25vw);width:26px;height:26px;
-  background:radial-gradient(ellipse at center,#080e30 0%,#080e30 42%,rgba(8,14,48,0) 74%);
+  left:calc(34% - 17px);top:87px;width:34px;height:34px;
+  background:radial-gradient(ellipse at center,#070d2c 0%,#070d2c 40%,rgba(7,13,44,.96) 53%,rgba(7,13,44,0) 78%);
  }
  html:not([data-theme="day"]) header,html:not([data-theme="day"]) main{position:relative;z-index:1}
 }
