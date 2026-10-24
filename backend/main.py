@@ -380,17 +380,37 @@ def truyenfull_clean_text(value):
     return re.sub(r"\n{3,}","\n\n",value).strip()
 
 def wordpress_remove_hidden_noise(chapter):
-    """Discard tiny, nearly white injected spans and nearly white noise paragraphs."""
-    for tag in list(chapter.find_all(True)):
+    """Detect obfuscated WordPress chapters and remove hidden noise conservatively."""
+    from collections import Counter
+    def styles(tag):
+        return {k.strip():v.strip().lower() for k,v in re.findall(r"([a-z-]+)\s*:\s*([^;]+)",tag.get("style","").lower())}
+    def rgb(value):
+        value=value.strip().lower().replace(" ","")
+        if re.fullmatch(r"#[0-9a-f]{3}",value):
+            return tuple(int(c*2,16) for c in value[1:])
+        if re.fullmatch(r"#[0-9a-f]{6}",value):
+            return tuple(int(value[i:i+2],16) for i in (1,3,5))
+        m=re.fullmatch(r"rgba?\((\d+),(\d+),(\d+)(?:,[^)]+)?\)",value)
+        return tuple(int(m.group(i)) for i in (1,2,3)) if m else None
+    def tiny(value):
+        m=re.match(r"^([0-9]*\.?[0-9]+)\s*(px|pt|em|rem)$",value)
+        return bool(m and float(m.group(1)) <= (2 if m.group(2) in ("px","pt") else .13))
+    tags=list(chapter.find_all(True))
+    # Only enable color-based filtering if the chapter has a repeated pattern
+    # of tiny, low-contrast insertions (rather than legitimate styled text).
+    tiny_colored=[t for t in tags if tiny(styles(t).get("font-size","")) and rgb(styles(t).get("color",""))]
+    suspicious=len(tiny_colored)>=3 or (len(tiny_colored)>=1 and sum(len(t.get_text("",strip=True)) for t in tiny_colored)>=12)
+    for tag in reversed(tags):
         if tag.parent is None:continue
-        style=tag.get("style","").lower()
-        declarations={k.strip():v.strip() for k,v in re.findall(r"([a-z-]+)\s*:\s*([^;]+)",style)}
-        color=declarations.get("color","").lstrip("#")
-        near_white=(len(color)==6 and all(int(color[i:i+2],16)>=245 for i in (0,2,4))) if re.fullmatch(r"[0-9a-f]{6}",color) else False
-        size=declarations.get("font-size","").replace(" ","")
-        tiny=size in ("1pt","1px","0pt","0px")
-        hidden=declarations.get("display")=="none" or declarations.get("visibility")=="hidden"
-        if hidden or (near_white and (tiny or tag.name in ("p","div"))):
+        st=styles(tag)
+        hidden=st.get("display")=="none" or st.get("visibility") in ("hidden","collapse") or st.get("opacity")=="0" or tag.has_attr("hidden") or tag.get("aria-hidden")=="true"
+        color=rgb(st.get("color",""))
+        background=rgb(st.get("background-color","")) or (255,255,255)
+        low_contrast=bool(color and max(abs(x-y) for x,y in zip(color,background))<=12)
+        is_tiny=tiny(st.get("font-size",""))
+        # Small inline garbage and entire concealed paragraphs, but never
+        # remove an ordinary paragraph solely because it is light colored.
+        if hidden or (suspicious and low_contrast and (is_tiny or tag.name in ("p","span") and len(tag.get_text("",strip=True))<=160)):
             tag.decompose()
     return chapter
 
