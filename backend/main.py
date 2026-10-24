@@ -845,9 +845,15 @@ async def image(req:ReadRequest):
             r=await client.get(url,headers={"User-Agent":"Mozilla/5.0","Referer":f"https://{u.hostname}/","Accept":"image/avif,image/webp,image/png,image/jpeg,*/*"})
             r.raise_for_status()
             mime=r.headers.get("content-type","").split(";")[0].lower()
-            if mime not in ("image/jpeg","image/png","image/webp") or len(r.content)>5_000_000:
+            data=r.content
+            # Some image hosts (including NavyTeams) return application/octet-stream
+            # or another incorrect MIME for a valid PNG/JPEG/WebP file.
+            if data.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):mime="image/png"
+            elif data.startswith(b"\\xff\\xd8\\xff"):mime="image/jpeg"
+            elif data.startswith(b"RIFF") and data[8:12]==b"WEBP":mime="image/webp"
+            if mime not in ("image/jpeg","image/png","image/webp") or len(data)>5_000_000:
                 raise HTTPException(415,"Ảnh không hỗ trợ hoặc quá lớn.")
-            return Response(r.content,media_type=mime,headers={"Cache-Control":"public, max-age=3600"})
+            return Response(data,media_type=mime,headers={"Cache-Control":"public, max-age=3600"})
     except httpx.HTTPError as exc:
         raise HTTPException(502,"Không tải được ảnh từ máy chủ nguồn.") from exc
 
