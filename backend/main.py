@@ -175,22 +175,41 @@ def chapter_links(soup,base,story_path):
     return list(found.values())
 
 async def wattpad_story_metadata(client,url):
-    match=re.search(r'/story/(\d+)',urlparse(url).path)
-    if not match:return None
+    """WattpadDownloader-inspired: support either a story URL or a part URL."""
+    parsed=urlparse(url)
+    story_match=re.search(r'/story/(\\d+)',parsed.path)
+    part_match=re.match(r'^/(\\d{6,})(?:-|/|$)',parsed.path)
+    story_id=story_match.group(1) if story_match else None
     try:
-        r=await client.get('https://www.wattpad.com/api/v3/stories/'+match.group(1),params={'fields':'id,title,cover,numParts,parts(id,title,url)'},headers={'Accept':'application/json'})
-        if r.status_code!=200:return None
-        data=r.json()
+        if not story_id and part_match:
+            part_id=part_match.group(1)
+            response=await client.get(
+                'https://www.wattpad.com/api/v3/story_parts/'+part_id,
+                params={'fields':'groupId,group(id,title,cover,user(username),parts(id,title))'},
+                headers={'Accept':'application/json'})
+            if response.status_code!=200:return None
+            data=response.json()
+            group=data.get('group') if isinstance(data,dict) else None
+            story_id=str(data.get('groupId') or (group.get('id') if isinstance(group,dict) else '') or '')
+        if not story_id or not re.fullmatch(r'\\d+',story_id):return None
+        response=await client.get(
+            'https://www.wattpad.com/api/v3/stories/'+story_id,
+            params={'fields':'id,title,cover,numParts,user(username),parts(id,title,url)'},
+            headers={'Accept':'application/json'})
+        if response.status_code!=200:return None
+        data=response.json()
         if not isinstance(data,dict) or not isinstance(data.get('parts'),list):return None
         parts=[]
         for part in data['parts']:
             if not isinstance(part,dict):continue
-            link=normalized_url(url,part.get('url') or ('https://www.wattpad.com/'+str(part.get('id',''))))
-            if link and re.fullmatch(r'/\d{6,}(?:-[^/]*)?/?',urlparse(link).path):
+            identifier=str(part.get('id') or '')
+            if not re.fullmatch(r'\\d{6,}',identifier):continue
+            link=normalized_url(url,part.get('url') or ('https://www.wattpad.com/'+identifier))
+            if link and re.fullmatch(r'/\\d{6,}(?:-[^/]*)?/?',urlparse(link).path):
                 parts.append({'title':str(part.get('title') or 'Chương '+str(len(parts)+1))[:180],'url':link})
-        return {'parts':parts,'cover':data.get('cover'),'numParts':data.get('numParts')}
-    except (httpx.HTTPError,ValueError,TypeError):return None
-
+        user=data.get('user') if isinstance(data.get('user'),dict) else {}
+        return {'parts':parts,'cover':data.get('cover'),'title':data.get('title'),'author':user.get('username',''),'story_url':'https://www.wattpad.com/story/'+story_id,'numParts':data.get('numParts')}
+    except (httpx.HTTPError,ValueError,TypeError,KeyError,AttributeError):return None
 
 async def wattpad_story_archive(client,story_url):
     """Fetch publicly available story text ZIP, as used by WattpadDownloader."""
@@ -429,12 +448,12 @@ async def discover(req:ReadRequest):
     u=urlparse(req.url.strip())
     if u.scheme!="https" or not u.hostname or not allowed(u.hostname.lower()) or u.port not in (None,443):
         raise HTTPException(400,"Nguồn chưa được hỗ trợ hoặc URL không hợp lệ.")
-    if (u.hostname or "").lower().endswith("wattpad.com") and re.search(r"/story/\\d+",u.path):
-        async with httpx.AsyncClient(timeout=25,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0","Accept":"application/json","Accept-Language":"en-US,en;q=0.9"}) as client:
+    if (u.hostname or "").lower().endswith("wattpad.com"):
+        async with httpx.AsyncClient(timeout=25,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36","Accept":"application/json","Accept-Language":"en-US,en;q=0.9"}) as client:
             info=await wattpad_story_metadata(client,req.url)
             if info and info.get("parts"):
-                return {"title":"","author":"","cover":info.get("cover") or "","chapters":info["parts"],"count":len(info["parts"])}
-        # Fall through to public HTML parsing when the official API is unavailable.
+                return {"title":info.get("title") or "", "author":info.get("author") or "", "cover":info.get("cover") or "", "chapters":info["parts"],"count":len(info["parts"]),"story_url":info.get("story_url") or req.url}
+        raise HTTPException(502,"Không lấy được mục lục Wattpad qua API công khai. Có thể chương bị khóa, truyện không tồn tại hoặc Wattpad từ chối máy chủ.")
     if (u.hostname or "").lower().endswith("luotnovel1.site"):
         return await luotnovel_discover(req.url)
     if (u.hostname or "").lower().endswith("inkitt.com") and re.search(r"/stories/\d+",u.path):
@@ -628,7 +647,11 @@ async def batch(req:BatchRequest):
     is_wattpad=(urlparse(req.url).hostname or '').lower().endswith('wattpad.com')
     semaphore=asyncio.Semaphore(5)
     async with httpx.AsyncClient(timeout=20,follow_redirects=False,limits=httpx.Limits(max_connections=6),headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"en-US,en;q=0.9"}) as client:
-        archive=await wattpad_story_archive(client,req.url) if is_wattpad else None
+        archive_url=req.url
+        if is_wattpad and not re.search(r"/story/\\d+",urlparse(req.url).path):
+            info=await wattpad_story_metadata(client,req.url)
+            if info and info.get("story_url"):archive_url=info["story_url"]
+        archive=await wattpad_story_archive(client,archive_url) if is_wattpad else None
         async def fetch_one(item):
             async with semaphore:
                 try:
@@ -640,6 +663,8 @@ async def batch(req:BatchRequest):
                             return {'title':item['title'],'url':item['url'],'content':text,'images':imgs}
                     soup,base=await get_page(client,item["url"])
                     content,images=chapter_body(soup,base)
+                    if is_wattpad and not content:
+                        return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"Wattpad không cung cấp nội dung chương qua HTML hoặc bản ZIP công khai; chương có thể bị khóa hoặc nguồn từ chối máy chủ."}
                     if not content and (urlparse(base).hostname or "").lower().endswith("navyteams.com"):
                         return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"NavyTeams: trang chương không có nội dung HTML nhận diện được (có thể tải bằng JavaScript hoặc cấu trúc khác)."}
                     resolved=[image_url(base,x) for x in images] if req.include_images else []
