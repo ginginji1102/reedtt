@@ -460,7 +460,22 @@ async def discover(req:ReadRequest):
             info=await wattpad_story_metadata(client,req.url)
             if info and info.get("parts"):
                 return {"title":info.get("title") or "", "author":info.get("author") or "", "cover":info.get("cover") or "", "chapters":info["parts"],"count":len(info["parts"]),"story_url":info.get("story_url") or req.url}
-        raise HTTPException(502,"Không lấy được mục lục Wattpad qua API công khai. Có thể chương bị khóa, truyện không tồn tại hoặc Wattpad từ chối máy chủ.")
+        # Wattpad's API can return 403/429 while public story HTML still contains part links.
+        try:
+            async with httpx.AsyncClient(timeout=25,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml","Accept-Language":"vi-VN,vi;q=0.9"}) as client:
+                soup,base=await get_page(client,req.url)
+                chapters=chapter_links(soup,base,urlparse(base).path)
+                if not chapters:
+                    for a in soup.select("a[href]"):
+                        link=normalized_url(base,a.get("href",""))
+                        if link and re.fullmatch(r"/\\d{6,}(?:-[^/]*)?/?",urlparse(link).path):
+                            chapters.append({"title":a.get_text(" ",strip=True)[:180] or "Chương "+str(len(chapters)+1),"url":link})
+                if chapters:
+                    chapters=list({item["url"]:item for item in chapters}.values())
+                    return {"title":(soup.select_one("meta[property='og:title']") or {}).get("content",""),"author":"","chapters":chapters,"count":len(chapters)}
+        except (HTTPException,httpx.HTTPError,ValueError):
+            pass
+        raise HTTPException(502,"Wattpad không trả mục lục qua API hoặc HTML công khai từ máy chủ. Kiểm tra quyền truy cập truyện hoặc thử lại sau.")
     if (u.hostname or "").lower().endswith("luotnovel1.site"):
         return await luotnovel_discover(req.url)
     if (u.hostname or "").lower().endswith("inkitt.com") and re.search(r"/stories/\d+",u.path):
