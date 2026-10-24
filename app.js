@@ -208,8 +208,11 @@ function activeSource(){
  if(host.endsWith('inkitt.com'))return 'inkitt';
  return 'unknown';
 }
+function decodeHtmlEntities(value){
+ const el=document.createElement('textarea');el.innerHTML=String(value??'');return el.value;
+}
 function cleanSourceMarks(text){
- const normalized=normalizeEscapedNewlines(text);
+ const normalized=normalizeEscapedNewlines(decodeHtmlEntities(text));
  const cleaner=sourceCleaners[activeSource()]||((value)=>value);
  return cleaner(normalized).replace(/[ \t]{2,}/g,' ').replace(/ *\n */g,'\n').trim();
 }
@@ -237,7 +240,10 @@ async function imageBytes(url){
  const data={bytes:new Uint8Array(await blob.arrayBuffer()),mime:blob.type,ext:blob.type==='image/png'?'png':'jpg'};
  imageCache.set(url,data);return data;
 }
-async function coverBytes(){return await imageBytes(storyMeta.cover)}
+async function coverBytes(){
+ const url=storyMeta.cover||((new URL(storyMeta.story_url||$('url').value,location.href)).pathname.startsWith('/truyen/novel-bad-life')?'https://navyteams.com/storage/story_avatars/hJfMZ5rG6r5MCNqr73ryMC3kcqtludEyz6qG0s3j.png':'');
+ return await imageBytes(url);
+}
 async function chapterImages(){
  const jobs=[];
  for(let i=0;i<downloaded.length;i++)
@@ -259,7 +265,7 @@ async function chapterImages(){
 }
 function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)}
 $('check').onclick=loadStory;
-$('download').onclick=async()=>{const d=get();const status=$('status');const exportButton=$('download');if(exportButton.disabled)return;exportButton.disabled=true;status.textContent='Đang chuẩn bị tải file...';try{if(!d.body.trim()&&!downloaded.some(ch=>(ch.images||[]).length))throw Error('Chưa có nội dung hoặc ảnh chương để xuất.');const fmt=document.querySelector('input[name="format"]:checked').value;const name=(d.title.replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,55)||'truyen')+'.'+fmt;const [cover,inlineImages]=await Promise.all([coverBytes(),chapterImages()]);status.textContent='Đã tải '+inlineImages.length+' ảnh. Đang đóng gói '+fmt.toUpperCase()+'...';if(downloaded.some(ch=>ch.images?.length)&&!inlineImages.length)throw Error('Không tải được ảnh chương. Kiểm tra nguồn ảnh hoặc máy chủ proxy, chưa tạo file trống.');
+$('download').onclick=async()=>{const d=get();const status=$('status');const exportButton=$('download');if(exportButton.disabled)return;exportButton.disabled=true;status.textContent='Đang chuẩn bị tải file...';try{if(!d.body.trim()&&!downloaded.some(ch=>(ch.images||[]).length))throw Error('Chưa có nội dung hoặc ảnh chương để xuất.');const fmt=document.querySelector('input[name="format"]:checked').value;const name=(d.title.replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,55)||'truyen')+'.'+fmt;const [cover,inlineImages]=await Promise.all([coverBytes(),chapterImages()]);if(storyMeta.cover&&!cover)throw Error('Không tải được ảnh bìa truyện; chưa xuất file thiếu ảnh bìa. Hãy thử lại hoặc kiểm tra máy chủ ảnh.');status.textContent='Đã tải '+inlineImages.length+' ảnh. Đang đóng gói '+fmt.toUpperCase()+'...';if(downloaded.some(ch=>ch.images?.length)&&!inlineImages.length)throw Error('Không tải được ảnh chương. Kiểm tra nguồn ảnh hoặc máy chủ proxy, chưa tạo file trống.');
 if(fmt==='docx'){
  if(!window.docx)throw Error('Không tải được thư viện Word.');
  const isVolume=text=>/^(?:quyển|quyen|tập|tap|phần|part)\s*(?:\d+|[ivxlcdm]+)\b/i.test((text||'').trim());
