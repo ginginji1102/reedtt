@@ -128,7 +128,7 @@ async function loadChapters(){
  try{
   const chunkSize=new URL(url).hostname.endsWith('giatocvuongtai.com')?2:new URL(url).hostname.endsWith('wattpad.com')?5:10;
   const host=new URL(url).hostname;
-  const concurrency=host.endsWith('wattpad.com')?3:host.endsWith('giatocvuongtai.com')?1:4;
+  const concurrency=host.endsWith('wattpad.com')?4:host.endsWith('giatocvuongtai.com')?1:5;
   const ranges=[];
   for(let from=start;from<=end;from+=chunkSize)ranges.push({from,to:Math.min(from+chunkSize-1,end)});
   const results=new Array(ranges.length);
@@ -227,7 +227,8 @@ $('check').onclick=loadStory;
 $('download').onclick=async()=>{const d=get();const status=$('status');status.textContent='Đang tạo file...';try{if(!d.body.trim()&&!downloaded.some(ch=>(ch.images||[]).length))throw Error('Chưa có nội dung hoặc ảnh chương để xuất.');const fmt=document.querySelector('input[name="format"]:checked').value;const name=(d.title.replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,55)||'truyen')+'.'+fmt;const [cover,inlineImages]=await Promise.all([coverBytes(),chapterImages()]);if(downloaded.some(ch=>ch.images?.length)&&!inlineImages.length)throw Error('Không tải được ảnh chương. Kiểm tra nguồn ảnh hoặc máy chủ proxy, chưa tạo file trống.');
 if(fmt==='docx'){
  if(!window.docx)throw Error('Không tải được thư viện Word.');
- const para=(text,kind='normal',extra={})=>new docx.Paragraph({text,style:kind==='title'?'StoryTitle':kind==='heading'?'Heading1':'Normal',...extra});
+ const isVolume=text=>/^(?:quyển|quyen|tập|tap|phần|part)\s*(?:\d+|[ivxlcdm]+)\b/i.test((text||'').trim());
+ const para=(text,kind='normal',extra={})=>new docx.Paragraph({text,style:kind==='title'||kind==='volume'?'Heading1':kind==='heading'?'Heading2':'Normal',...extra});
  const paragraphs=[para(d.title,'title')];
  if(cover)paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,spacing:{after:120},children:[new docx.ImageRun({data:cover.bytes,transformation:{width:270,height:400},type:cover.ext})]}));
  if(d.author)paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,spacing:{after:80},children:[new docx.TextRun({text:'Tác giả: ',bold:true}),new docx.TextRun(d.author)]}));
@@ -239,14 +240,14 @@ if(fmt==='docx'){
  }
  for(let i=0;i<downloaded.length;i++){
   const chapter=downloaded[i];
-  paragraphs.push(para(chapter.title,'heading'));
+  paragraphs.push(para(chapter.title,isVolume(chapter.title)?'volume':'heading'));
   for(const block of sourceParagraphs(chapter.content||'')){if(block.trim())paragraphs.push(para(block.trim()))}
   for(const im of inlineImages.filter(x=>x.chapter===i))paragraphs.push(new docx.Paragraph({alignment:docx.AlignmentType.CENTER,children:[new docx.ImageRun({data:im.bytes,transformation:{width:300,height:300},type:im.ext})]}));
  }
  if(!downloaded.length)for(const block of sourceParagraphs($('content').value))if(block.trim())paragraphs.push(para(block.trim()));
  const doc=new docx.Document({
   styles:{default:{document:{run:{font:'Tahoma',size:22,color:'000000'},paragraph:{spacing:{after:160,line:360}}}},paragraphStyles:[
-   {id:'StoryTitle',name:'Story Title',basedOn:'Normal',next:'Normal',run:{font:'Cambria',size:72,bold:true,color:'1F3864'},paragraph:{alignment:docx.AlignmentType.CENTER,spacing:{after:140}}},
+   {id:'StoryTitle',name:'Story Title',basedOn:'Normal',next:'Normal',run:{font:'Cambria',size:32,bold:true,color:'1F3864'},paragraph:{alignment:docx.AlignmentType.CENTER,spacing:{after:140}}},
    {id:'Heading1',name:'Heading 1',basedOn:'Normal',next:'Normal',run:{font:'Cambria',size:32,bold:true,color:'1F3864'},paragraph:{spacing:{before:240,after:0}}},
    {id:'Heading2',name:'Heading 2',basedOn:'Normal',next:'Normal',run:{font:'Tahoma',size:22,bold:true,color:'000000'},paragraph:{spacing:{before:40,after:0,line:360}}}
   ]},
