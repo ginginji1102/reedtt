@@ -618,6 +618,13 @@ async def discover(req:ReadRequest):
             if wattpad_data and wattpad_data['parts']:
                 found={part['url']:part for part in wattpad_data['parts']}
             pages=page_links(soup,base,story_path)
+            # NavyTeams often renders its entire table of contents on the story page.
+            # If the displayed chapter count matches extracted links, skip pagination.
+            if (urlparse(base).hostname or "").lower().endswith("navyteams.com") and found:
+                count_node=soup.find(string=re.compile(r"Danh\\s*Sách\\s*Chương\\s*\\(\\s*\\d+\\s*\\)",re.I))
+                count_match=re.search(r"\\(\\s*(\\d+)\\s*\\)",str(count_node)) if count_node else None
+                if count_match and len(found)>=int(count_match.group(1)):
+                    pages=[]
             # Bounded pagination discovery to avoid unlimited crawling.
             async def listing(page):
                 try:
