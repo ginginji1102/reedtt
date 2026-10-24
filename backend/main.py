@@ -411,6 +411,13 @@ def wordpress_remove_hidden_noise(chapter):
         # Small inline garbage and entire concealed paragraphs, but never
         # remove an ordinary paragraph solely because it is light colored.
         if hidden or (suspicious and low_contrast and (is_tiny or tag.name in ("p","span") and len(tag.get_text("",strip=True))<=160)):
+            # Preserve original separators inside removed inline noise.
+            # Never insert a new space within a word split by a junk span.
+            if tag.name not in ("p","div","section","article"):
+                raw=tag.get_text()
+                if raw and (raw[0].isspace() or raw[-1].isspace()):
+                    tag.replace_with(" ")
+                    continue
             tag.decompose()
     return chapter
 
