@@ -128,7 +128,7 @@ async function loadChapters(){
  try{
   const chunkSize=5;
   const host=new URL(url).hostname;
-  const concurrency=host.endsWith('wattpad.com')?2:host.endsWith('giatocvuongtai.com')?1:4;
+  const concurrency=host.endsWith('wattpad.com')?2:host.endsWith('giatocvuongtai.com')?1:5;
   const ranges=[];
   for(let from=start;from<=end;from+=chunkSize)ranges.push({from,to:Math.min(from+chunkSize-1,end)});
   const results=new Array(ranges.length);
