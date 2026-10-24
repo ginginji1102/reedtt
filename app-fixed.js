@@ -103,19 +103,14 @@ async function loadStory(){
    discovered=discovered.map((ch,i)=>({...ch,__order:i})).sort((a,b)=>{const x=chapterKey(a),y=chapterKey(b);return x[0]-y[0]||x[1]-y[1]||a.__order-b.__order}).map(({__order,...ch})=>ch);
   }
   storyMeta={title:data.title||"",author:data.author||"",description:data.description||"",categories:data.categories||[],cover:data.cover||"",story_url:data.story_url||""};
+  // Exact cover URL supplied for Nhất phẩm phu nhân, not other WordPress books.
+  try{const source=new URL(storyMeta.story_url||$('url').value.trim());if(source.hostname==='tichvulam.wordpress.com'&&/nhat-pham-phu-nhan/i.test(source.pathname))storyMeta.cover='https://tichvulam.wordpress.com/wp-content/uploads/2017/01/7_554763_655ee55ad21bd19.jpg'}catch{}
   const meta=$("storymeta");meta.replaceChildren();
   const layout=document.createElement("div");layout.className="story-meta-layout";
   const details=document.createElement("div");details.className="story-meta-details";
   displayedCoverBytes=null;
   if(storyMeta.cover){const img=document.createElement("img");const coverUrl=storyMeta.cover;img.alt="Ảnh bìa truyện";img.className="story-meta-cover";img.referrerPolicy="no-referrer";img.loading="lazy";img.onload=()=>{void rememberDisplayedCover(img,coverUrl)};img.onerror=async()=>{img.onerror=null;try{const response=await fetch(API+"/image",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:coverUrl}),signal:AbortSignal.timeout(30000)});if(!response.ok)throw Error("Ảnh nguồn không tải được");const blob=await response.blob();if(!blob.type.startsWith("image/"))throw Error("Phản hồi không phải ảnh");const bytes={bytes:new Uint8Array(await blob.arrayBuffer()),mime:blob.type,ext:blob.type==="image/png"?"png":blob.type==="image/webp"?"webp":"jpg"};if(storyMeta.cover===coverUrl){displayedCoverBytes=bytes;imageCache.set(coverUrl,bytes)}const local=URL.createObjectURL(blob);img.onload=()=>{URL.revokeObjectURL(local)};img.onerror=()=>{URL.revokeObjectURL(local);img.style.display="none";img.title="Máy chủ ảnh bìa từ chối tải"};img.removeAttribute("crossorigin");img.src=local}catch(e){img.style.display="none";img.title=e.message||"Không tải được ảnh bìa"}};img.src=coverUrl;layout.append(img)}
   for(const [name,val] of [["Tên truyện",storyMeta.title],["Tác giả",storyMeta.author],["Thể loại",storyMeta.categories.join(", ")],["Mô tả",storyMeta.description]]){if(val){const p=document.createElement("p");const b=document.createElement("strong");b.textContent=name+": ";p.append(b,document.createTextNode(val));if(name==="Mô tả"&&val.length>450){p.style.maxHeight="9em";p.style.overflow="hidden";const toggle=document.createElement("button");toggle.type="button";toggle.className="alt";toggle.textContent="Xem thêm";toggle.style.marginBottom="12px";toggle.onclick=()=>{const expanded=p.style.maxHeight==="none";p.style.maxHeight=expanded?"9em":"none";toggle.textContent=expanded?"Xem thêm":"Thu gọn";toggle.setAttribute("aria-expanded",String(!expanded))};toggle.setAttribute("aria-expanded","false");details.append(p,toggle)}else details.append(p)}}
-  if(storyMeta.cover){
-   const choose=document.createElement('button');choose.type='button';choose.className='alt';choose.textContent='Chọn ảnh bìa từ máy';choose.style.marginTop='10px';
-   const picker=document.createElement('input');picker.type='file';picker.accept='image/png,image/jpeg,image/webp';picker.style.display='none';
-   choose.onclick=()=>picker.click();
-   picker.onchange=async()=>{try{await useLocalCover(picker.files?.[0])}catch(e){$('status').textContent='Lỗi ảnh bìa: '+e.message}finally{picker.value=''}};
-   details.append(choose,picker);
-  }
   layout.append(details);meta.append(layout);
   downloaded=[];
   if(data.title)$('title').value=data.title;
@@ -252,23 +247,6 @@ function bookParagraphs(d){
 const get=()=>({title:cleanSourceMarks($('title').value.trim()||'Truyện mẫu'),author:cleanSourceMarks($('author').value.trim()),body:[storyMeta.categories?.length?'Thể loại: '+storyMeta.categories.join(', '):'',storyMeta.description?'Giới Thiệu\n'+storyMeta.description:'',$('content').value].filter(Boolean).join('\n\n')});
 const imageCache=new Map();
 let displayedCoverBytes=null;
-async function useLocalCover(file){
- if(!file)return;
- if(file.size>5000000)throw Error('Ảnh bìa được chọn lớn hơn 5 MB.');
- let blob=file;
- if(file.type==='image/webp'){
-  const bmp=await createImageBitmap(file),canvas=document.createElement('canvas');
-  canvas.width=bmp.width;canvas.height=bmp.height;canvas.getContext('2d').drawImage(bmp,0,0);bmp.close();
-  blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
- }
- if(!blob||!['image/png','image/jpeg'].includes(blob.type))throw Error('Chỉ hỗ trợ ảnh bìa PNG, JPG hoặc WebP.');
- displayedCoverBytes={bytes:new Uint8Array(await blob.arrayBuffer()),mime:blob.type,ext:blob.type==='image/png'?'png':'jpg'};
- if(storyMeta.cover)imageCache.set(storyMeta.cover,displayedCoverBytes);
- const img=document.querySelector('#storymeta img.story-meta-cover');
- if(img){const old=img.dataset.localObjectUrl;if(old)URL.revokeObjectURL(old);const objectUrl=URL.createObjectURL(blob);img.dataset.localObjectUrl=objectUrl;img.onload=null;img.onerror=null;img.src=objectUrl;img.style.display='block'}
- $('status').textContent='Đã chọn ảnh bìa từ máy. Có thể tạo file ngay.';
-}
-
 async function rememberDisplayedCover(img,url){
  try{
   if(!img.naturalWidth||!img.naturalHeight)return;
@@ -328,7 +306,7 @@ async function coverBytes(){
   const verified='https://navyteams.com/storage/story_avatars/hJfMZ5rG6r5MCNqr73ryMC3kcqtludEyz6qG0s3j.png';
   if(url!==verified){result=await imageBytes(verified);if(result)storyMeta.cover=verified}
  }
- if(url&&!result)throw Error('Không tải được ảnh bìa tự động. Hãy bấm “Chọn ảnh bìa từ máy” trong phần Thông tin trang truyện, rồi nhấn tạo file lại.');
+ if(url&&!result)throw Error('Không tải được dữ liệu ảnh bìa từ URL nguồn. Vui lòng thử lại sau; NovelBox không yêu cầu chọn ảnh từ máy.');
  return result;
 }
 async function chapterImages(){
