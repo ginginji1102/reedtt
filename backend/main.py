@@ -380,22 +380,22 @@ def truyenfull_clean_text(value):
     return re.sub(r"\n{3,}","\n\n",value).strip()
 
 def wordpress_remove_hidden_noise(chapter):
-    """Remove near-white, tiny injected text without altering visible prose."""
-    from bs4 import Tag
-    def near_white(value):
-        value=value.strip().lower().replace(' ','')
-        m=re.fullmatch(r'#([0-9a-f]{6})',value)
-        if m:
-            rgb=[int(m.group(1)[i:i+2],16) for i in (0,2,4)]
-            return min(rgb)>=245
-        m=re.fullmatch(r'rgb\\((\\d+),(\\d+),(\\d+)\\)',value)
-        return bool(m and min(int(m.group(i)) for i in (1,2,3))>=245)
+    """Discard tiny, nearly white injected spans and nearly white noise paragraphs."""
     for tag in list(chapter.find_all(True)):
-        if not isinstance(tag,Tag) or tag.parent is None:continue
-        style=tag.get('style','')
-        declarations=dict((key.strip().lower(),value.strip().lower()) for key,value in re.findall(r'(?:^|;)\\s*([\\w-]+)\\s*:\\s*([^;]+)',style))
-        size=declarations.get('font-size','')
-        small=bool(re.match(r'^(?:0(?:\\.\\d+)?|1(?:\\.0+)?)\\s*(?:pt|px)\\s*
+        if tag.parent is None:continue
+        style=tag.get("style","").lower()
+        declarations={k.strip():v.strip() for k,v in re.findall(r"([a-z-]+)\\s*:\\s*([^;]+)",style)}
+        color=declarations.get("color","").lstrip("#")
+        near_white=(len(color)==6 and all(int(color[i:i+2],16)>=245 for i in (0,2,4))) if re.fullmatch(r"[0-9a-f]{6}",color) else False
+        size=declarations.get("font-size","").replace(" ","")
+        tiny=size in ("1pt","1px","0pt","0px")
+        hidden=declarations.get("display")=="none" or declarations.get("visibility")=="hidden"
+        if hidden or (near_white and (tiny or tag.name in ("p","div"))):
+            tag.decompose()
+    return chapter
+
+
+def chapter_body(soup, source_url=''):
     host=(urlparse(source_url).hostname or '').lower()
     special=host.endswith(('wattpad.com','inkitt.com'))
     preferred=(('.story-page-text','#story-text-container') if host.endswith('inkitt.com') else ())+('[data-testid=story-part-content]','.story-part-content','.panel-reading','.reading-content','.chapter-text','.chapter-content')
