@@ -127,52 +127,49 @@ async function loadChapters(){
  let failures=0;
  try{
   const chunkSize=new URL(url).hostname.endsWith('giatocvuongtai.com')?2:new URL(url).hostname.endsWith('wattpad.com')?5:10;
-  for(let from=start;from<=end;from+=chunkSize){
-   const to=Math.min(from+chunkSize-1,end),items=discovered.slice(from-1,to);
-   const cached=items.map(item=>previous.get(item.url));
-   let result=cached.every(x=>x&&(x.content||x.images?.length))?cached:null;
-   if(!result){
-    let lastError;
-    for(let attempt=1;attempt<=(new URL(url).hostname.endsWith('giatocvuongtai.com')?2:5);attempt++){
-     status.textContent='Đang thu thập chương '+from+'–'+to+' / '+end+' · '+downloaded.length+'/'+total+' chương'+(attempt>1?' · thử lại '+attempt+'/5':'');
-     try{
-      const data=(new URL(url).hostname.endsWith('giatocvuongtai.com'))
-       ? await api('/render-batch',{url,start:from,end:to,chapters:items,include_images})
-       : await api('/batch',{url,start:from,end:to,chapters:items,include_images});
-      if(!Array.isArray(data.chapters)||data.chapters.length!==items.length)throw Error('Phản hồi chưa đầy đủ');
-      result=data.chapters;break;
-     }catch(e){
-      lastError=e;
-      if(attempt<(new URL(url).hostname.endsWith('giatocvuongtai.com')?2:5))await sleep(Math.min(1500*Math.pow(2,attempt-1),12000));
-     }
-    }
+  const host=new URL(url).hostname;
+  const concurrency=host.endsWith('wattpad.com')?3:host.endsWith('giatocvuongtai.com')?1:4;
+  const ranges=[];
+  for(let from=start;from<=end;from+=chunkSize)ranges.push({from,to:Math.min(from+chunkSize-1,end)});
+  const results=new Array(ranges.length);
+  let next=0,completed=0;
+  async function worker(){
+   while(next<ranges.length){
+    const idx=next++,{from,to}=ranges[idx],items=discovered.slice(from-1,to);
+    const cached=items.map(item=>previous.get(item.url));
+    let result=cached.every(x=>x&&(x.content||x.images?.length))?cached:null;
     if(!result){
-     failures+=items.length;
-     result=items.map(item=>({title:item.title,url:item.url,content:'',images:[],error:lastError?.message||'Không tải được'}));
+     let lastError;
+     const maxAttempts=3;
+     for(let attempt=1;attempt<=maxAttempts;attempt++){
+      try{
+       const data=host.endsWith('giatocvuongtai.com')
+        ?await api('/render-batch',{url,start:from,end:to,chapters:items,include_images})
+        :await api('/batch',{url,start:from,end:to,chapters:items,include_images});
+       if(!Array.isArray(data.chapters)||data.chapters.length!==items.length)throw Error('Phản hồi chưa đầy đủ');
+       result=data.chapters;break;
+      }catch(e){lastError=e;if(attempt<maxAttempts)await sleep(700*attempt)}
+     }
+     if(!result){failures+=items.length;result=items.map(item=>({title:item.title,url:item.url,content:'',images:[],error:lastError?.message||'Không tải được'}))}
     }
+    results[idx]=result;
+    completed+=result.length;
+    status.textContent='Đã thu thập '+completed+'/'+total+' chương · '+Math.min(concurrency,ranges.length)+' luồng song song'+(failures?' · '+failures+' chương lỗi':'');
    }
-   const blocked=result.some(x=>!x.content&&/Inkitt.*(?:403|401|429)|Inkitt.*từ chối/i.test(x.error||''));
-   if(blocked){
-    downloaded.push(...result);
-    $('content').value=downloaded.filter(x=>x.content).map(x=>x.title+'\n\n'+x.content).join('\n\n\n');
-    status.textContent='Inkitt đang chặn truy cập từ máy chủ (HTTP 403/401/429). Đã dừng tải để tránh thử lại hàng trăm chương. Không thể lấy nội dung khi nguồn từ chối kết nối.';
-    return;
-   }
-   downloaded.push(...result);
-   $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||(x.images?.length?'[Chương gồm '+x.images.length+' ảnh]':'[Chương tải lỗi — xem thông báo trạng thái]'))).join('\n\n\n');
-   status.textContent='Đã xử lý '+downloaded.length+'/'+total+' chương'+(failures?' · '+failures+' chương cần tải lại':'');
   }
+  await Promise.all(Array.from({length:Math.min(concurrency,ranges.length)},()=>worker()));
+  downloaded=results.flat();
+  $('content').value=downloaded.map(x=>x.title+'\\n\\n'+(x.content||(x.images?.length?'[Chương gồm '+x.images.length+' ảnh]':'[Chương tải lỗi — xem thông báo trạng thái]'))).join('\\n\\n\\n');
   const failed=downloaded.filter(x=>!x.content&&!x.images?.length);
-  if(failed.length && !new URL(url).hostname.endsWith('giatocvuongtai.com') && !failed.some(x=>/Inkitt.*(?:403|401|429)|Inkitt.*từ chối/i.test(x.error||''))){
-   status.textContent='Đã quét '+total+' chương; đang thử tải lại '+failed.length+' chương bị lỗi...';
+  if(failed.length&& !host.endsWith('giatocvuongtai.com')){
+   status.textContent='Đang thử tải lại '+failed.length+' chương bị lỗi...';
    for(let i=0;i<failed.length;i+=5){
-    const items=failed.slice(i,i+5);
     try{
-     const data=await api('/batch',{url,chapters:items,include_images});
-     for(const chapter of data.chapters||[]){const index=downloaded.findIndex(x=>x.url===chapter.url);if(index>=0&&chapter.content)downloaded[index]=chapter}
-    }catch(e){/* Keep the downloaded chapters and continue. */}
+     const data=await api('/batch',{url,chapters:failed.slice(i,i+5),include_images});
+     for(const chapter of data.chapters||[]){const idx=downloaded.findIndex(x=>x.url===chapter.url);if(idx>=0&&(chapter.content||chapter.images?.length))downloaded[idx]=chapter}
+    }catch(e){}
    }
-   $('content').value=downloaded.map(x=>x.title+'\n\n'+(x.content||(x.images?.length?'[Chương gồm '+x.images.length+' ảnh]':'[Chương tải lỗi — xem thông báo trạng thái]'))).join('\n\n\n');
+   $('content').value=downloaded.map(x=>x.title+'\\n\\n'+(x.content||(x.images?.length?'[Chương gồm '+x.images.length+' ảnh]':'[Chương tải lỗi — xem thông báo trạng thái]'))).join('\\n\\n\\n');
   }
   const missing=downloaded.filter(x=>!x.content&&!x.images?.length).length;
   const reasons=[...new Set(downloaded.filter(x=>!x.content&&!x.images?.length).map(x=>x.error||'Không rõ nguyên nhân'))].slice(0,3);status.textContent='Hoàn thành '+(total-missing)+'/'+total+' chương.'+(missing?' Lỗi: '+reasons.join(' · ')+'. Bấm Tải nội dung để thử lại.':' Sẵn sàng xuất file.');
