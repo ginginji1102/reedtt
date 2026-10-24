@@ -302,7 +302,12 @@ def chapter_body(soup, source_url=''):
     preferred=(('.story-page-text','#story-text-container') if host.endswith('inkitt.com') else ())+('[data-testid=story-part-content]','.story-part-content','.panel-reading','.reading-content','.chapter-text','.chapter-content')
     if host.endswith("luotnovel1.site"):
         preferred=("#chapter-content","#chapterContent",".chapter-content",".chapter-body",".reading-content",".read-content",".chapter-text",".entry-content",".content-chapter",".novel-content","article", "[class*='chapter-content']")
-    if host.endswith("navyteams.com"):
+    if host.endswith("truyenfull.live"):
+        preferred=("#chapter-c","#chapter-content","#chapterContent",".chapter-c",".chapter-content",".chapter-body",".reading-content",".entry-content","[itemprop='articleBody']")
+        chapter=next((soup.select_one(sel) for sel in preferred if soup.select_one(sel)),None)
+        if chapter is None:
+            chapter=soup.select_one("article")
+    elif host.endswith("navyteams.com"):
         # Read only the actual visible novel body; avoid generic page containers.
         chapter=soup.select_one("#novelContent")
         if chapter is None:
@@ -340,6 +345,7 @@ def chapter_body(soup, source_url=''):
             return "\n\n"+content+"\n\n" if content else ""
         return "".join(walk(child) for child in node.children)
     content="".join(walk(child) for child in chapter.children)
+    content=content.replace("\\r\\n","\n").replace("\\n","\n").replace("\\r","\n")
     content=content.replace("\xa0"," ").replace("\r","")
     content=re.sub(r"[ \t]+"," ",content)
     content=re.sub(r" *\n *","\n",content)
@@ -735,6 +741,8 @@ async def batch(req:BatchRequest):
                         return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"Wattpad không cung cấp nội dung chương qua HTML hoặc bản ZIP công khai; chương có thể bị khóa hoặc nguồn từ chối máy chủ."}
                     if not content and (urlparse(base).hostname or "").lower().endswith("navyteams.com"):
                         return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"NavyTeams: trang chương không có nội dung HTML nhận diện được (có thể tải bằng JavaScript hoặc cấu trúc khác)."}
+                    if not content and not images and (urlparse(base).hostname or "").lower().endswith("truyenfull.live"):
+                        return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"Truyenfull: không tìm thấy nội dung chương trong HTML. Có thể trang bị chặn hoặc cấu trúc đã thay đổi."}
                     resolved=[image_url(base,x) for x in images] if req.include_images else []
                     return {"title":item["title"],"url":item["url"],"content":content,"images":[x for x in resolved if x]}
                 except (httpx.HTTPError,HTTPException) as exc:
