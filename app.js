@@ -230,13 +230,22 @@ function bookParagraphs(d){
 const get=()=>({title:cleanSourceMarks($('title').value.trim()||'Truyện mẫu'),author:cleanSourceMarks($('author').value.trim()),body:[storyMeta.description?'Giới Thiệu\n'+storyMeta.description:'',storyMeta.categories?.length?'Thể loại: '+storyMeta.categories.join(', '):'',$('content').value].filter(Boolean).join('\n\n')});
 const imageCache=new Map();
 async function imageBytes(url){
- if(imageCache.has(url))return imageCache.get(url);
  if(!url)return null;
- let blob;
- try{const r=await fetch(url,{mode:'cors',signal:AbortSignal.timeout(4500)});if(r.ok)blob=await r.blob()}catch{}
- if(!blob){try{const r=await fetch(API+'/image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url}),signal:AbortSignal.timeout(9000)});if(r.ok)blob=await r.blob()}catch{}}
- if(!blob||blob.size>5000000||!/^image\/(png|jpeg|webp)$/.test(blob.type))return null;
- if(blob.type==='image/webp'){try{const bmp=await createImageBitmap(blob),canvas=document.createElement('canvas');canvas.width=bmp.width;canvas.height=bmp.height;canvas.getContext('2d').drawImage(bmp,0,0);blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));bmp.close()}catch{return null}}
+ if(imageCache.has(url))return imageCache.get(url);
+ const fetchBlob=async(proxy,timeout)=>{
+  const response=await fetch(proxy?API+'/image':url,proxy?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url}),signal:AbortSignal.timeout(timeout)}:{mode:'cors',signal:AbortSignal.timeout(timeout)});
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const blob=await response.blob();
+  if(blob.size>5000000||!/^image\/(png|jpeg|webp)$/.test(blob.type))throw Error('Ảnh không hợp lệ hoặc quá 5MB');
+  return blob;
+ };
+ let blob=null;
+ for(let attempt=0;attempt<4&&!blob;attempt++){
+  try{blob=await fetchBlob(attempt!==0,attempt===0?12000:30000)}
+  catch(e){console.warn('Thử tải ảnh '+(attempt+1)+'/4',url,e.message);if(attempt<3)await new Promise(resolve=>setTimeout(resolve,800*(attempt+1)))}
+ }
+ if(!blob)return null;
+ if(blob.type==='image/webp'){try{const bmp=await createImageBitmap(blob),canvas=document.createElement('canvas');canvas.width=bmp.width;canvas.height=bmp.height;canvas.getContext('2d').drawImage(bmp,0,0);blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));bmp.close();if(!blob)return null}catch{return null}}
  const data={bytes:new Uint8Array(await blob.arrayBuffer()),mime:blob.type,ext:blob.type==='image/png'?'png':'jpg'};
  imageCache.set(url,data);return data;
 }
@@ -264,7 +273,7 @@ async function chapterImages(){
  const result=new Array(jobs.length);
  let cursor=0,done=0;
  const status=$('status');
- const workers=Array.from({length:Math.min(16,jobs.length)},async()=>{
+ const workers=Array.from({length:Math.min(4,jobs.length)},async()=>{
   while(cursor<jobs.length){
    const index=cursor++,job=jobs[index];
    try{const data=await imageBytes(job.url);if(data)result[index]={chapter:job.chapter,...data}}
@@ -274,7 +283,9 @@ async function chapterImages(){
   }
  });
  await Promise.all(workers);
- return result.filter(Boolean);
+ const failed=result.reduce((acc,item,index)=>{if(!item)acc.push(index+1);return acc},[]);
+ if(failed.length)throw Error("Chỉ tải được "+(jobs.length-failed.length)+"/"+jobs.length+" ảnh. Còn thiếu "+failed.length+" ảnh (vị trí: "+failed.slice(0,15).join(", ")+(failed.length>15?", ...":"")+"). Chưa xuất file để tránh mất ảnh; hãy thử lại.");
+ return result;
 }
 function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)}
 $('check').onclick=loadStory;
