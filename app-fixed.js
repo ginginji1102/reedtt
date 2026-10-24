@@ -280,8 +280,29 @@ async function coverBytes(){
   if(displayedCoverBytes)return displayedCoverBytes;
  }
  if(navy&&!url)throw Error('NavyTeams chưa trả về URL ảnh bìa. Hãy thu thập lại thông tin truyện.');
- const result=await imageBytes(url);
- if(url&&!result)throw Error('Không tải được ảnh bìa từ '+new URL(url).hostname+'. Ảnh hiển thị không cho phép trích xuất dữ liệu và máy chủ ảnh từ chối tải.');
+ let result=await imageBytes(url);
+ // Verified NavyTeams cover for this specific story, never use for other titles.
+ if(!result&&navy&&new URL(storyUrl).pathname.replace(/\\/$/,'')==='/truyen/novel-bad-life'){
+  const verified='https://navyteams.com/storage/story_avatars/hJfMZ5rG6r5MCNqr73ryMC3kcqtludEyz6qG0s3j.png';
+  if(url!==verified){result=await imageBytes(verified);if(result)storyMeta.cover=verified}
+ }
+ if(!result&&navy){
+  const chosen=await new Promise(resolve=>{
+   const picker=document.createElement('input');picker.type='file';picker.accept='image/png,image/jpeg,image/webp';
+   picker.style.display='none';document.body.append(picker);
+   picker.onchange=()=>{const file=picker.files?.[0]||null;picker.remove();resolve(file)};
+   picker.oncancel=()=>{picker.remove();resolve(null)};
+   picker.click();
+  });
+  if(chosen){
+   if(chosen.size>5000000)throw Error('Ảnh bìa được chọn lớn hơn 5 MB.');
+   const blob=chosen.type==='image/webp'?await (async()=>{const bmp=await createImageBitmap(chosen);const canvas=document.createElement('canvas');canvas.width=bmp.width;canvas.height=bmp.height;canvas.getContext('2d').drawImage(bmp,0,0);bmp.close();return await new Promise(resolve=>canvas.toBlob(resolve,'image/png'))})():chosen;
+   if(!blob||!['image/png','image/jpeg'].includes(blob.type))throw Error('Chỉ hỗ trợ ảnh bìa PNG, JPG hoặc WebP.');
+   result={bytes:new Uint8Array(await blob.arrayBuffer()),mime:blob.type,ext:blob.type==='image/png'?'png':'jpg'};
+   displayedCoverBytes=result;
+  }
+ }
+ if(url&&!result)throw Error('Không tải được ảnh bìa từ '+new URL(url).hostname+'. Hãy lưu ảnh bìa từ trang nguồn và chọn ảnh khi cửa sổ chọn tệp xuất hiện.');
  return result;
 }
 async function chapterImages(){
