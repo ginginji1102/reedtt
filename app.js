@@ -268,7 +268,7 @@ async function coverBytes(){
   // retry the exact <img src> verified from the story page.
   try{
    const story=new URL(storyUrl);
-   if(story.hostname.endsWith('navyteams.com')&&story.pathname.replace(/\\/$/,'')==='/truyen/novel-bad-life'){
+   if(story.hostname.endsWith('navyteams.com')&&story.pathname.replace(/\/$/,'')==='/truyen/novel-bad-life'){
     const verified='https://navyteams.com/storage/story_avatars/hJfMZ5rG6r5MCNqr73ryMC3kcqtludEyz6qG0s3j.png';
     if(url!==verified){result=await imageBytes(verified);if(result)storyMeta.cover=verified}
    }
