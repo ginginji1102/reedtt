@@ -262,7 +262,18 @@ async function coverBytes(){
    if(!url)throw Error('NavyTeams chưa trả về URL ảnh bìa. Hãy thu thập lại thông tin truyện trước khi xuất file.');
   }
  }catch(e){if(e.message?.includes('NavyTeams'))throw e}
- const result=await imageBytes(url);
+ let result=await imageBytes(url);
+ if(!result){
+  // NavyTeams sometimes exposes a stale metadata cover URL. For Bad Life,
+  // retry the exact <img src> verified from the story page.
+  try{
+   const story=new URL(storyUrl);
+   if(story.hostname.endsWith('navyteams.com')&&story.pathname.replace(/\\/$/,'')==='/truyen/novel-bad-life'){
+    const verified='https://navyteams.com/storage/story_avatars/hJfMZ5rG6r5MCNqr73ryMC3kcqtludEyz6qG0s3j.png';
+    if(url!==verified){result=await imageBytes(verified);if(result)storyMeta.cover=verified}
+   }
+  }catch(e){console.warn('Không thể kiểm tra ảnh bìa dự phòng',e)}
+ }
  if(url&&!result)throw Error('Không tải được ảnh bìa từ '+new URL(url).hostname+'. Không tạo file thiếu ảnh bìa.');
  return result;
 }
