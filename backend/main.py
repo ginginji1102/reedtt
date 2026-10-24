@@ -779,7 +779,7 @@ async def discover(req:ReadRequest):
             if host.endswith("navyteams.com"):
                 # Read the actual <img src> used by NavyTeams story avatars.
                 # Do not hardcode a cover for one particular story.
-                avatar=soup.select_one('img[src*="/storage/story_avatars/"],img[data-src*="/storage/story_avatars/"],img[data-original*="/storage/story_avatars/"]')
+                avatar=soup.select_one('.info-cover img[src],.info-cover img[data-src],.info-cover img[data-original],img[src*="/storage/story_avatars/"],img[data-src*="/storage/story_avatars/"],img[data-original*="/storage/story_avatars/"]')
                 if avatar:
                     raw=avatar.get("src") or avatar.get("data-src") or avatar.get("data-original") or ""
                     candidate=image_url(base,raw)
