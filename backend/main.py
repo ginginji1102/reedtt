@@ -415,7 +415,9 @@ def wordpress_remove_hidden_noise(chapter):
             # Never insert a new space within a word split by a junk span.
             if tag.name not in ("p","div","section","article"):
                 raw=tag.get_text()
-                if raw and (raw[0].isspace() or raw[-1].isspace()):
+                if raw and any(ch.isspace() for ch in raw):
+                    # Obfuscators may place the only word separator in the
+                    # middle of the concealed span, not at its edges.
                     tag.replace_with(" ")
                     continue
             tag.decompose()
