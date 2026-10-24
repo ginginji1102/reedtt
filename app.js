@@ -178,8 +178,12 @@ async function loadChapters(){
 }
 $('fetchchapters').onclick=loadChapters;
 const escapeXml=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function normalizeEscapedNewlines(text){
+ let value=String(text??'');
+ return value.replace(/\\r\\n/g,'\n').replace(/\\n/g,'\n').replace(/\\r/g,'\n').replace(/\r\n?/g,'\n');
+}
 function cleanSourceMarks(text){
- return String(text||'').replace(/(?:truyenfullvn|truyenfulllive|truyenfull|truyen full)/gi,'').replace(/(?:\s*,){2,}\s*(?:vn\b)?/gi,' ').replace(/(^|[\s,])vn(?=\s*(?:$|[.!?\n]))/gi,'$1').replace(/\s+,/g,',').replace(/,{2,}/g,',').replace(/[ \t]{2,}/g,' ').replace(/ *\n */g,'\n').trim();
+ return normalizeEscapedNewlines(text).replace(/(?:truyenfullvn|truyenfulllive|truyenfull|truyen full)/gi,'').replace(/(?:\s*,){2,}\s*(?:vn\b)?/gi,' ').replace(/(^|[\s,])vn(?=\s*(?:$|[.!?\n]))/gi,'$1').replace(/\s+,/g,',').replace(/,{2,}/g,',').replace(/[ \t]{2,}/g,' ').replace(/ *\n */g,'\n').trim();
 }
 function sourceParagraphs(text){
  const cleaned=cleanSourceMarks(text).replace(/\r\n?/g,'\n');
