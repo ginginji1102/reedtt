@@ -126,7 +126,7 @@ async function loadChapters(){
  const total=end-start+1;
  let failures=0;
  try{
-  const chunkSize=new URL(url).hostname.endsWith('giatocvuongtai.com')?2:new URL(url).hostname.endsWith('wattpad.com')?10:15;
+  const chunkSize=new URL(url).hostname.endsWith('giatocvuongtai.com')?2:new URL(url).hostname.endsWith('wattpad.com')?10:10;
   const host=new URL(url).hostname;
   const concurrency=host.endsWith('wattpad.com')?2:host.endsWith('giatocvuongtai.com')?1:4;
   const ranges=[];
@@ -144,11 +144,15 @@ async function loadChapters(){
      const maxAttempts=host.endsWith('wattpad.com')?2:2;
      for(let attempt=1;attempt<=maxAttempts;attempt++){
       try{
+       const pending=result?items.filter((item,i)=>!(result[i]?.content||result[i]?.images?.length)):items;
+       if(!pending.length)break;
        const data=host.endsWith('giatocvuongtai.com')
-        ?await api('/render-batch',{url,start:from,end:to,chapters:items,include_images,source:'auto'})
-        :await api('/batch',{url,start:from,end:to,chapters:items,include_images,source:'auto'});
-       if(!Array.isArray(data.chapters)||data.chapters.length!==items.length)throw Error('Phản hồi chưa đầy đủ');
-       result=data.chapters;break;
+        ?await api('/render-batch',{url,start:from,end:to,chapters:pending,include_images,source:'auto'})
+        :await api('/batch',{url,start:from,end:to,chapters:pending,include_images,source:'auto'});
+       if(!Array.isArray(data.chapters))throw Error('Phản hồi không hợp lệ');
+       const byUrl=new Map(data.chapters.map(ch=>[ch.url,ch]));
+       result=items.map((item,i)=>result?.[i]?.content||result?.[i]?.images?.length?result[i]:(byUrl.get(item.url)||{...item,content:'',images:[],error:'Chưa nhận được nội dung'}));
+       if(result.every(ch=>ch.content||ch.images?.length))break;
       }catch(e){lastError=e;if(attempt<maxAttempts)await sleep(host.endsWith('wattpad.com')?1500*attempt:700*attempt)}
      }
      if(!result){failures+=items.length;result=items.map(item=>({title:item.title,url:item.url,content:'',images:[],error:lastError?.message||'Không tải được'}))}
