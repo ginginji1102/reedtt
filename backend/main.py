@@ -429,6 +429,12 @@ async def discover(req:ReadRequest):
     u=urlparse(req.url.strip())
     if u.scheme!="https" or not u.hostname or not allowed(u.hostname.lower()) or u.port not in (None,443):
         raise HTTPException(400,"Nguồn chưa được hỗ trợ hoặc URL không hợp lệ.")
+    if (u.hostname or "").lower().endswith("wattpad.com") and re.search(r"/story/\\d+",u.path):
+        async with httpx.AsyncClient(timeout=25,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0","Accept":"application/json","Accept-Language":"en-US,en;q=0.9"}) as client:
+            info=await wattpad_story_metadata(client,req.url)
+            if info and info.get("parts"):
+                return {"title":"","author":"","cover":info.get("cover") or "","chapters":info["parts"],"count":len(info["parts"])}
+        # Fall through to public HTML parsing when the official API is unavailable.
     if (u.hostname or "").lower().endswith("luotnovel1.site"):
         return await luotnovel_discover(req.url)
     if (u.hostname or "").lower().endswith("inkitt.com") and re.search(r"/stories/\d+",u.path):
