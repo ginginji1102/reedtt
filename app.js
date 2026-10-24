@@ -207,19 +207,27 @@ async function imageBytes(url){
 }
 async function coverBytes(){return await imageBytes(storyMeta.cover)}
 async function chapterImages(){
- const result=[];
-
- for(let i=0;i<downloaded.length;i++){
-  for(const url of (downloaded[i].images||[]).slice(0,30)){
-   const data=await imageBytes(url);
-   if(data)result.push({chapter:i,...data});
+ const jobs=[];
+ for(let i=0;i<downloaded.length;i++)
+  for(const url of (downloaded[i].images||[]))jobs.push({chapter:i,url});
+ const result=new Array(jobs.length);
+ let cursor=0,done=0;
+ const status=$('status');
+ const workers=Array.from({length:Math.min(6,jobs.length)},async()=>{
+  while(cursor<jobs.length){
+   const index=cursor++,job=jobs[index];
+   try{const data=await imageBytes(job.url);if(data)result[index]={chapter:job.chapter,...data}}
+   catch(e){console.warn('Không tải được ảnh chương',job.url,e)}
+   done++;
+   if(done%5===0||done===jobs.length)status.textContent='Đang tải ảnh '+done+'/'+jobs.length+' để tạo file...';
   }
- }
- return result;
+ });
+ await Promise.all(workers);
+ return result.filter(Boolean);
 }
 function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)}
 $('check').onclick=loadStory;
-$('download').onclick=async()=>{const d=get();const status=$('status');status.textContent='Đang tạo file...';try{if(!d.body.trim())throw Error('Hãy nhập nội dung trước.');const fmt=document.querySelector('input[name="format"]:checked').value;const name=(d.title.replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,55)||'truyen')+'.'+fmt;const cover=await coverBytes();const inlineImages=await chapterImages();
+$('download').onclick=async()=>{const d=get();const status=$('status');status.textContent='Đang tạo file...';try{if(!d.body.trim()&&!downloaded.some(ch=>(ch.images||[]).length))throw Error('Chưa có nội dung hoặc ảnh chương để xuất.');const fmt=document.querySelector('input[name="format"]:checked').value;const name=(d.title.replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,55)||'truyen')+'.'+fmt;const [cover,inlineImages]=await Promise.all([coverBytes(),chapterImages()]);
 if(fmt==='docx'){
  if(!window.docx)throw Error('Không tải được thư viện Word.');
  const para=(text,kind='normal',extra={})=>new docx.Paragraph({text,style:kind==='title'?'StoryTitle':kind==='heading'?'Heading1':'Normal',...extra});
