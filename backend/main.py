@@ -804,12 +804,17 @@ async def discover(req:ReadRequest):
                     categories=[x.strip() for x in raw.split(",") if x.strip()]
             chapters=list(found.values())
             def order(x):
-                m=re.search(r"(?:chương|chuong|chapter)[^0-9]{0,12}(\d+)",x["title"]+" "+x["url"],re.I)
-                if (urlparse(base).hostname or "").lower().endswith("navyteams.com"):
-                    extra=re.search(r"(?:ngoại\\s*truyện|ngoai[-_\\s]*truyen)[^0-9]{0,12}(\\d+)",x["title"]+" "+x["url"],re.I)
-                    if extra:return 100000+int(extra.group(1))
-                return int(m.group(1)) if m else 10**9
-            if not (wattpad_data and wattpad_data['parts']) and not (urlparse(base).hostname or "").lower().endswith("navyteams.com"):chapters.sort(key=order)
+                label=x["title"].strip()
+                # Extras belong after the numbered main story chapters.
+                is_extra=bool(re.search(r"ngoại\\s*truyện|ngoai[-_\\s]*truyen|extra|番外",label,re.I))
+                match=re.search(r"(?:chương|chuong|chapter|chap|ngoại\\s*truyện|ngoai[-_\\s]*truyen|extra)[^0-9]{0,20}(\\d+)",label,re.I)
+                if not match:
+                    match=re.search(r"(?:chuong|chapter|chap|ngoai-truyen|extra)[-_]?(\\d+)",urlparse(x["url"]).path,re.I)
+                number=int(match.group(1)) if match else 10**9
+                return (1 if is_extra else 0,number)
+            if not (wattpad_data and wattpad_data['parts']):
+                # NavyTeams lists newest first; stable sorting restores chapter 1 -> N -> extras.
+                chapters.sort(key=order)
             return {"title":title[:200],"author":author.get_text(" ",strip=True)[:120] if author else "","description":description[:15000],"cover":cover,"categories":categories[:30],"chapters":chapters[:1000],"count":len(chapters),"truncated":len(pages)>12 or len(chapters)>1000}
     except httpx.HTTPStatusError as exc:
         status=exc.response.status_code
