@@ -315,6 +315,14 @@ async function coverBytes(){
  }
  if(navy&&!url)throw Error('NavyTeams chưa trả về URL ảnh bìa. Hãy thu thập lại thông tin truyện.');
  let result=await imageBytes(url);
+ // Verified cover for Nhất phẩm phu nhân on tichvulam WordPress.
+ // Only use this fallback for this story, never for other books on the blog.
+ const isTichVuLamBook=(()=>{try{const u=new URL(storyUrl);return u.hostname==='tichvulam.wordpress.com'&&/nhat-pham-phu-nhan/i.test(u.pathname)}catch{return false}})();
+ if(!result&&isTichVuLamBook){
+  const verified='https://tichvulam.wordpress.com/wp-content/uploads/2017/01/7_554763_655ee55ad21bd19.jpg';
+  result=await imageBytes(verified);
+  if(result){storyMeta.cover=verified;displayedCoverBytes=result}
+ }
  // Verified NavyTeams cover for this specific story, never use for other titles.
  if(!result&&navy&&new URL(storyUrl).pathname.replace(/\/$/,'')==='/truyen/novel-bad-life'){
   const verified='https://navyteams.com/storage/story_avatars/hJfMZ5rG6r5MCNqr73ryMC3kcqtludEyz6qG0s3j.png';
