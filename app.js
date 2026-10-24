@@ -120,6 +120,7 @@ async function loadChapters(){
  if(!discovered.length){status.textContent='Hãy tìm danh sách chương trước.';return}
  if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>discovered.length){status.textContent='Phạm vi chương không hợp lệ.';return}
  activeDownload=true;btn.disabled=true;
+ status.textContent='Đang thu thập 0/'+(end-start+1)+' chương...';
  const url=storyMeta.story_url||$('url').value.trim(),include_images=true;
  const previous=new Map(downloaded.map(c=>[c.url,c]));
  downloaded=[];
@@ -136,6 +137,7 @@ async function loadChapters(){
   async function worker(){
    while(next<ranges.length){
     const idx=next++,{from,to}=ranges[idx],items=discovered.slice(from-1,to);
+    status.textContent='Đang thu thập '+completed+'/'+total+' chương... (đang tải chương '+from+'–'+to+')';
     const cached=items.map(item=>previous.get(item.url));
     let result=cached.every(x=>x&&(x.content||x.images?.length))?cached:null;
     if(!result){
