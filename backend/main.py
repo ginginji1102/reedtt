@@ -384,7 +384,7 @@ def wordpress_remove_hidden_noise(chapter):
     for tag in list(chapter.find_all(True)):
         if tag.parent is None:continue
         style=tag.get("style","").lower()
-        declarations={k.strip():v.strip() for k,v in re.findall(r"([a-z-]+)\\s*:\\s*([^;]+)",style)}
+        declarations={k.strip():v.strip() for k,v in re.findall(r"([a-z-]+)\s*:\s*([^;]+)",style)}
         color=declarations.get("color","").lstrip("#")
         near_white=(len(color)==6 and all(int(color[i:i+2],16)>=245 for i in (0,2,4))) if re.fullmatch(r"[0-9a-f]{6}",color) else False
         size=declarations.get("font-size","").replace(" ","")
