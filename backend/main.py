@@ -217,7 +217,7 @@ async def wattpad_story_metadata(client,url):
                 story_id=str(data.get("groupId") or group.get("id") or "")
                 if story_id:break
         if not story_id or not story_id.isdigit():return None
-        fields="id,title,cover,description,numParts,user(username),parts(id,title,url,text_url)"
+        fields="id,title,cover,description,numParts,tags,user(username),parts(id,title,url,text_url)"
         response=await client.get("https://www.wattpad.com/api/v3/stories/"+story_id,params={"fields":fields},headers={"Accept":"application/json"})
         if response.status_code!=200:return None
         data=response.json()
@@ -238,7 +238,7 @@ async def wattpad_story_metadata(client,url):
                 item["text_url"]=text_url
             parts.append(item)
         user=data.get("user") if isinstance(data.get("user"),dict) else {}
-        return {"parts":parts,"cover":data.get("cover"),"description":data.get("description") or "","title":data.get("title"),"author":user.get("username",""),"story_url":"https://www.wattpad.com/story/"+story_id,"numParts":data.get("numParts")}
+        return {"parts":parts,"cover":data.get("cover"),"description":data.get("description") or "","categories":data.get("tags") or [],"title":data.get("title"),"author":user.get("username",""),"story_url":"https://www.wattpad.com/story/"+story_id,"numParts":data.get("numParts")}
     except (httpx.HTTPError,ValueError,TypeError,KeyError,AttributeError):return None
 
 
@@ -496,7 +496,7 @@ async def discover(req:ReadRequest):
                     for key in ("description","cover","title","author"):
                         if details.get(key) and (key=="description" or not info.get(key)):info[key]=details[key]
                 except (HTTPException,httpx.HTTPError,ValueError):pass
-                return {"title":info.get("title") or "", "author":info.get("author") or "", "cover":info.get("cover") or "", "description":info.get("description") or "", "chapters":info["parts"],"count":len(info["parts"]),"story_url":info.get("story_url") or req.url}
+                return {"title":info.get("title") or "", "author":info.get("author") or "", "cover":info.get("cover") or "", "description":info.get("description") or "", "categories":info.get("categories") or [], "chapters":info["parts"],"count":len(info["parts"]),"story_url":info.get("story_url") or req.url}
         # Wattpad's API can return 403/429 while public story HTML still contains part links.
         try:
             async with httpx.AsyncClient(timeout=25,follow_redirects=False,headers={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml","Accept-Language":"vi-VN,vi;q=0.9"}) as client:
@@ -719,18 +719,23 @@ async def batch(req:BatchRequest):
                         part=archive.get(match.group(1)) if match else None
                         if part is not None:
                             text,imgs=wattpad_story_text(part,item['url'],req.include_images)
-                            if text or imgs:return {'title':item['title'],'url':item['url'],'content':text,'images':imgs}
+                            if (text or imgs) and (not req.include_images or imgs):return {'title':item['title'],'url':item['url'],'content':text,'images':imgs}
                     if is_wattpad and item.get("text_url"):
                         try:
                             direct=await client.get(item["text_url"],timeout=25)
                             if direct.status_code==200 and len(direct.content)<3000000:
                                 text,imgs=wattpad_story_text(direct.text,item["url"],req.include_images)
-                                if text or imgs:
+                                if (text or imgs) and (not req.include_images or imgs):
                                     return {"title":item["title"],"url":item["url"],"content":text,"images":imgs}
                         except httpx.HTTPError:
                             pass
                     soup,base=await get_page(client,item["url"])
                     content,images=chapter_body(soup,base)
+                    if is_wattpad:
+                        # Public chapter HTML is a second source of inline illustrations.
+                        extra_text,extra_images=wattpad_story_text(str(soup),base,req.include_images)
+                        if not content:content=extra_text
+                        images=list(dict.fromkeys([*images,*extra_images]))
                     if is_wattpad and not content and not images:
                         return {"title":item["title"],"url":item["url"],"content":"","images":[],"error":"Wattpad không cung cấp nội dung chương qua HTML hoặc bản ZIP công khai; chương có thể bị khóa hoặc nguồn từ chối máy chủ."}
                     if not content and (urlparse(base).hostname or "").lower().endswith("navyteams.com"):
