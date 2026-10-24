@@ -451,6 +451,9 @@ def chapter_body(soup, source_url=''):
         chapter=next((soup.select_one(sel) for sel in preferred if soup.select_one(sel)),None) if special else next((soup.select_one(sel) for sel in SELECTORS if soup.select_one(sel)),None)
     if not chapter:return "",[]
     if host.endswith("wordpress.com"):
+        # WordPress theme widgets are not part of the novel chapter.
+        for widget in list(chapter.select(".sharedaddy, .sd-sharing, .sd-rating, .jp-relatedposts, #jp-relatedposts, .wpl-likebox, .post-likes, .jetpack-likes-widget-wrapper, .wp-block-jetpack-like, .wp-block-jetpack-sharing-buttons, .sharedaddy-rating, .sd-content, .sd-title")):
+            widget.decompose()
         chapter=wordpress_remove_hidden_noise(chapter)
     for tag in chapter.select("script,style,nav,aside,footer,button,.ads,.advertisement,.read-more,.show-more,.more-btn,.expand,.collapse,[role=button]"):tag.decompose()
     for a in chapter.select("a"):
@@ -480,6 +483,12 @@ def chapter_body(soup, source_url=''):
     content=re.sub(r"[ \t]+"," ",content)
     content=re.sub(r" *\n *","\n",content)
     content=re.sub(r"\n{3,}","\n\n",content).strip()
+    if host.endswith("wordpress.com"):
+        # Remove trailing WordPress rating/share/related-posts footer only.
+        footer=re.search(r"(?im)^(?:Đánh giá\s*:|Chia sẻ\s*:|Thích\s+Đang tải\s*\.{0,3}|Có liên quan\s*:?)\s*$",content)
+        if footer:
+            content=content[:footer.start()].rstrip()
+
     if host.endswith("truyenfull.live"):
         content=truyenfull_clean_text(content)
     if special:
