@@ -275,13 +275,13 @@ def wattpad_story_text(html,base,include_images=False):
     for p in root.find_all('p'):
         if p.find_parent(['aside','nav','footer','header','script','style']):continue
         for bad in p.select('script,style,button,nav,aside'):bad.decompose()
-        for br in p.find_all('br'):br.replace_with('\\n')
-        value=p.get_text('',strip=False).replace('\\xa0',' ').strip()
-        value=re.sub(r'[ \\t]+',' ',value)
-        value=value.replace('\\\\r\\\\n','\\n').replace('\\\\n','\\n').replace('\\\\r','\\n')
-        value=re.sub(r'\\n{3,}','\\n\\n',value)
+        for br in p.find_all('br'):br.replace_with('\n')
+        value=p.get_text('',strip=False).replace('\xa0',' ').strip()
+        value=re.sub(r'[ \t]+',' ',value)
+        value=value.replace('\\r\\n','\n').replace('\\n','\n').replace('\\r','\n')
+        value=re.sub(r'\n{3,}','\n\n',value)
         if value:paragraphs.append(value)
-    return '\\n\\n'.join(paragraphs)[:300000],images[:1000]
+    return '\n\n'.join(paragraphs)[:300000],images[:1000]
 
 def page_links(soup,base,story_path):
     result=[]
