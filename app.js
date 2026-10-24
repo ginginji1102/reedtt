@@ -136,7 +136,7 @@ async function loadChapters(){
   async function worker(){
    while(next<ranges.length){
     const idx=next++,{from,to}=ranges[idx],items=discovered.slice(from-1,to);
-    status.textContent='Đang thu thập '+completed+'/'+total+' chương để tạo file... (đang tải chương '+from+'–'+to+')';
+    status.textContent='Đang thu thập '+completed+'/'+total+' chương để tạo file...';
     const cached=items.map(item=>previous.get(item.url));
     let result=cached.every(x=>x&&(x.content||x.images?.length))?cached:null;
     if(!result){
