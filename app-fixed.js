@@ -131,7 +131,7 @@ async function loadChapters(){
  activeDownload=true;btn.disabled=true;
  status.textContent='Đang thu thập 0/'+(end-start+1)+' chương để tạo file...';
  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
- const url=storyMeta.story_url||$('url').value.trim(),include_images=true;
+ const url=storyMeta.story_url||$('url').value.trim(),include_images=$('includeChapterImages').checked;
  const previous=new Map(downloaded.map(c=>[c.url,c]));
  downloaded=[];
  const total=end-start+1;
@@ -148,7 +148,7 @@ async function loadChapters(){
    while(next<ranges.length){
     const idx=next++,{from,to}=ranges[idx],items=discovered.slice(from-1,to);
     status.textContent='Đang thu thập '+completed+'/'+total+' chương để tạo file...';
-    const cached=items.map(item=>previous.get(item.url));
+    const cached=items.map(item=>{const old=previous.get(item.url);return old&&(!include_images||old.images?.length)?old:null});
     let result=cached.every(x=>x&&(x.content||x.images?.length))?cached:null;
     if(!result){
      let lastError;
@@ -316,6 +316,7 @@ async function coverBytes(){
  return result;
 }
 async function chapterImages(){
+ if(!$('includeChapterImages').checked)return [];
  const jobs=[];
  for(let i=0;i<downloaded.length;i++)
   for(const url of (downloaded[i].images||[]))jobs.push({chapter:i,url});
