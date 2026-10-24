@@ -691,6 +691,15 @@ async def batch(req:BatchRequest):
                         if part is not None:
                             text,imgs=wattpad_story_text(part,item['url'],req.include_images)
                             return {'title':item['title'],'url':item['url'],'content':text,'images':imgs}
+                    if is_wattpad and item.get("text_url"):
+                        try:
+                            direct=await client.get(item["text_url"],timeout=25)
+                            if direct.status_code==200 and len(direct.content)<3000000:
+                                text,imgs=wattpad_story_text(direct.text,item["url"],req.include_images)
+                                if text or imgs:
+                                    return {"title":item["title"],"url":item["url"],"content":text,"images":imgs}
+                        except httpx.HTTPError:
+                            pass
                     soup,base=await get_page(client,item["url"])
                     content,images=chapter_body(soup,base)
                     if is_wattpad and not content and not images:
