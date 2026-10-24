@@ -177,8 +177,8 @@ def chapter_links(soup,base,story_path):
 async def wattpad_story_metadata(client,url):
     """WattpadDownloader-inspired: support either a story URL or a part URL."""
     parsed=urlparse(url)
-    story_match=re.search(r'/story/(\\d+)',parsed.path)
-    part_match=re.match(r'^/(\\d{6,})(?:-|/|$)',parsed.path)
+    story_match=re.search(r'/story/(\d+)',parsed.path)
+    part_match=re.match(r'^/(\d{6,})(?:-|/|$)',parsed.path)
     story_id=story_match.group(1) if story_match else None
     try:
         if not story_id and part_match:
@@ -191,7 +191,7 @@ async def wattpad_story_metadata(client,url):
             data=response.json()
             group=data.get('group') if isinstance(data,dict) else None
             story_id=str(data.get('groupId') or (group.get('id') if isinstance(group,dict) else '') or '')
-        if not story_id or not re.fullmatch(r'\\d+',story_id):return None
+        if not story_id or not re.fullmatch(r'\d+',story_id):return None
         response=await client.get(
             'https://www.wattpad.com/api/v3/stories/'+story_id,
             params={'fields':'id,title,cover,numParts,user(username),parts(id,title,url)'},
@@ -203,9 +203,9 @@ async def wattpad_story_metadata(client,url):
         for part in data['parts']:
             if not isinstance(part,dict):continue
             identifier=str(part.get('id') or '')
-            if not re.fullmatch(r'\\d{6,}',identifier):continue
+            if not re.fullmatch(r'\d{6,}',identifier):continue
             link=normalized_url(url,part.get('url') or ('https://www.wattpad.com/'+identifier))
-            if link and re.fullmatch(r'/\\d{6,}(?:-[^/]*)?/?',urlparse(link).path):
+            if link and re.fullmatch(r'/\d{6,}(?:-[^/]*)?/?',urlparse(link).path):
                 parts.append({'title':str(part.get('title') or 'Chương '+str(len(parts)+1))[:180],'url':link})
         user=data.get('user') if isinstance(data.get('user'),dict) else {}
         return {'parts':parts,'cover':data.get('cover'),'title':data.get('title'),'author':user.get('username',''),'story_url':'https://www.wattpad.com/story/'+story_id,'numParts':data.get('numParts')}
