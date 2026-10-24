@@ -35,7 +35,7 @@ def source_for_url(url: str) -> str:
 
 def check_selected_source(url: str, source: str | None):
     detected=source_for_url(url)
-    if source and source not in ("auto",detected):
+    if source and source not in ("auto",detected) and source not in (domain for domain,name in SOURCE_HOSTS.items() if name==detected):
         raise HTTPException(400,"Nguồn đã chọn không khớp URL truyện.")
     return detected
 
