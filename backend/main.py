@@ -966,6 +966,12 @@ async def image(req:ReadRequest):
         from urllib.parse import quote
         candidates.append("https://wsrv.nl/?url="+quote(url,safe=""))
         candidates.append("https://i0.wp.com/"+u.hostname+u.path)
+    # WordPress.com hosts the supplied cover on its public uploads CDN.
+    # Try WordPress's own image CDN if direct origin access fails on Render.
+    if u.hostname=="tichvulam.wordpress.com" and u.path.startswith("/wp-content/uploads/"):
+        from urllib.parse import quote
+        candidates.append("https://i0.wp.com/"+u.hostname+u.path)
+        candidates.append("https://wsrv.nl/?url="+quote(url,safe=""))
     async with httpx.AsyncClient(timeout=22,follow_redirects=False,trust_env=False) as client:
         last_error=None
         for candidate in candidates:
