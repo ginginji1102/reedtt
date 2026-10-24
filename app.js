@@ -160,7 +160,7 @@ async function loadChapters(){
   }
   await Promise.all(Array.from({length:Math.min(concurrency,ranges.length)},()=>worker()));
   downloaded=results.flat().map(ch=>{const old=previous.get(ch.url);return (!ch.content&&!ch.images?.length&&old&&(old.content||old.images?.length))?old:ch});
-  $('content').value=downloaded.map(x=>x.title+'\\n\\n'+(x.content||(x.images?.length?'[Chương gồm '+x.images.length+' ảnh]':'[Chương tải lỗi — xem thông báo trạng thái]'))).join('\\n\\n\\n');
+  $('content').value=downloaded.map(x=>cleanSourceMarks(x.title)+'\n\n'+(x.content?cleanSourceMarks(x.content):(x.images?.length?'[Chương gồm '+x.images.length+' ảnh]':'[Chương tải lỗi — xem thông báo trạng thái]'))).join('\n\n\n');
   const failed=downloaded.filter(x=>!x.content&&!x.images?.length);
   if(failed.length&& !host.endsWith('giatocvuongtai.com')&&!host.endsWith('wattpad.com')){
    status.textContent='Đang thử tải lại '+failed.length+' chương bị lỗi...';
@@ -170,7 +170,7 @@ async function loadChapters(){
      for(const chapter of data.chapters||[]){const idx=downloaded.findIndex(x=>x.url===chapter.url);if(idx>=0&&(chapter.content||chapter.images?.length))downloaded[idx]=chapter}
     }catch(e){}
    }
-   $('content').value=downloaded.map(x=>x.title+'\\n\\n'+(x.content||(x.images?.length?'[Chương gồm '+x.images.length+' ảnh]':'[Chương tải lỗi — xem thông báo trạng thái]'))).join('\\n\\n\\n');
+   $('content').value=downloaded.map(x=>cleanSourceMarks(x.title)+'\n\n'+(x.content?cleanSourceMarks(x.content):(x.images?.length?'[Chương gồm '+x.images.length+' ảnh]':'[Chương tải lỗi — xem thông báo trạng thái]'))).join('\n\n\n');
   }
   const missing=downloaded.filter(x=>!x.content&&!x.images?.length).length;
   const reasons=[...new Set(downloaded.filter(x=>!x.content&&!x.images?.length).map(x=>x.error||'Không rõ nguyên nhân'))].slice(0,3);status.textContent='Hoàn thành '+(total-missing)+'/'+total+' chương.'+(missing?' Lỗi: '+reasons.join(' · ')+'. Bấm Tải nội dung để thử lại.':' Sẵn sàng xuất file.');
