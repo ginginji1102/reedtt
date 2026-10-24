@@ -669,6 +669,8 @@ async def discover(req:ReadRequest):
             # Do not refetch the same pagination URL or reparse pages when the
             # main page already exposes the complete chapter list.
             pending=list(dict.fromkeys(p for p in pages[:30] if p!=base))
+            if len(found)>=200 and (urlparse(base).hostname or "").lower().endswith("navyteams.com"):
+                pending=[]
             if pending:
                 limiter=asyncio.Semaphore(8)
                 async def limited_listing(page):
